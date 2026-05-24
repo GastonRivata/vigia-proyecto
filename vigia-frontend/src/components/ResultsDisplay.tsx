@@ -24,7 +24,12 @@ import {
   ChevronUp,
   Download,
   FileSearch,
-  Eye
+  Eye,
+  Wallet,
+  Store,
+  Landmark,
+  Server,
+  Truck
 } from 'lucide-react';
 import { PdfViewer } from '@/src/components/PdfViewer';
 import { 
@@ -85,7 +90,15 @@ const getFlowConfig = (flow: string) => {
       text: 'text-amber-700 dark:text-amber-400',
       iconText: 'text-amber-600 dark:text-amber-400',
       label: 'Retenciones',
-      icon: Database,
+      icon: Landmark,
+    };
+    case 'D': return { 
+      wrapper: 'bg-orange-50/50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-900/50',
+      headerClass: 'bg-orange-100/50 dark:bg-orange-900/30 border-orange-200 dark:border-orange-900/50',
+      text: 'text-orange-700 dark:text-orange-400',
+      iconText: 'text-orange-600 dark:text-orange-400',
+      label: 'Carta de Porte',
+      icon: Truck,
     };
     default: return { 
       wrapper: 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/50',
@@ -190,11 +203,14 @@ export function ResultsDisplay({ data, fileUrl, fileType: initialFileType, onUpd
     const isUSD = data?.cabecera?.moneda?.includes('US') || data?.cabecera?.moneda?.includes('$');
     const { pos, num } = parseComprobanteNumber(data?.cabecera?.numero || '');
     
-    let initialFlow: 'A' | 'B' | 'C' = 'A';
+    let initialFlow: 'A' | 'B' | 'C' | 'D' = 'A';
     let initialComprobante = hasItems ? 'REMEF' : 'FCOMS';
     let initialAlicuota = 0.6;
 
-    if (isRetencion) {
+    if (data?.carta_porte && Object.keys(data.carta_porte).length > 0) {
+      initialFlow = 'D';
+      initialComprobante = 'CP';
+    } else if (isRetencion) {
       initialFlow = 'C';
       const textToSearch = `${typeStr} ${detailDescs}`.toLowerCase();
       if (textToSearch.includes('ganancia') || textToSearch.includes('ganancias') || textToSearch.includes('gans') || textToSearch.includes('rtg') || textToSearch.includes('imp.gan.')) {
@@ -376,7 +392,8 @@ export function ResultsDisplay({ data, fileUrl, fileType: initialFileType, onUpd
     maestro: true,
     detalle: false,
     impuestos: false,
-    totales: true
+    totales: true,
+    carta_porte: true
   });
 
   const toggleSection = (section: keyof typeof expandedSections) => {
@@ -395,14 +412,14 @@ export function ResultsDisplay({ data, fileUrl, fileType: initialFileType, onUpd
   const isMatchAprobado = Boolean(rojosoftConfig.ordenCompra && localData.detalle?.length > 0 && localData.detalle.every((item: any) => item.id_cuerpo_afe));
 
   const getInputClasses = (fieldName: string, isEditingMode: boolean, extraClasses: string = "") => {
-    const base = cn("w-full text-sm pb-1 outline-none bg-transparent border-b transition-all", extraClasses);
+    const base = cn("w-full text-sm outline-none transition-all duration-300 rounded-md px-2.5 py-1.5 border", extraClasses);
     if (!isEditingMode) {
-      return cn(base, "border-transparent text-slate-900 dark:text-slate-200");
+      return cn(base, "border-transparent bg-transparent text-slate-900 dark:text-slate-200 px-0 py-1");
     }
     if (verifiedFields[fieldName]) {
-      return cn(base, "border-emerald-500 bg-emerald-50/50 dark:bg-emerald-900/10 text-emerald-900 dark:text-emerald-100 shadow-[0_1px_0_0_#10b981]");
+      return cn(base, "border-emerald-400 dark:border-emerald-600 bg-emerald-50/50 dark:bg-emerald-900/10 text-emerald-900 dark:text-emerald-100 ring-1 ring-emerald-500/10 shadow-sm");
     }
-    return cn(base, "border-blue-400 dark:border-blue-600 bg-blue-50/50 dark:bg-blue-900/20 dark:text-white hover:bg-blue-100/50 focus:bg-white dark:focus:bg-slate-800 focus:border-blue-500");
+    return cn(base, "border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 shadow-sm hover:border-slate-400 dark:hover:border-slate-600");
   };
 
   const getMaestroInputClasses = (fieldName: string, isMono: boolean = true) => cn(
@@ -512,7 +529,6 @@ export function ResultsDisplay({ data, fileUrl, fileType: initialFileType, onUpd
             newDetalle[0] = {
               ...newDetalle[0],
               id_cuerpo_afe: cuerpoRow.FacturaCuerpoAfe || cuerpoRow.IDTabla || cuerpoRow.IdCuerpo || cuerpoRow.Id,
-              id_cuerpo_facafe: cuerpoRow.FacturaAfe || cuerpoRow.IDTabla || cuerpoRow.IdCuerpo || cuerpoRow.Id,
               articulo_precio: cuerpoRow.ArticuloPrecio || newDetalle[0].articulo_precio,
               codigo_articulo: cuerpoRow.Articulo || cuerpoRow.CodigoArticulo || newDetalle[0].codigo_articulo
             };
@@ -592,7 +608,7 @@ export function ResultsDisplay({ data, fileUrl, fileType: initialFileType, onUpd
     }
   };
 
-  const xmlOutput = jsonToRojosoftSoapXml(localData, rojosoftConfig);
+  const xmlOutput = jsonToRojosoftSoapXml(localData, rojosoftConfig) || '';
 
   const handleInsert = async () => {
     if (!activeTenant) {
@@ -849,34 +865,45 @@ SELECT Cuenta, Nombre FROM CLIENTE;
             onClick={() => handleConfigChange('flow', 'A')}
             className={cn(
               "flex-1 flex flex-col items-center justify-center gap-1.5 py-3 rounded-lg text-[10px] font-black uppercase transition-all duration-300",
-              rojosoftConfig.flow === 'A' ? "bg-blue-600 text-white shadow-md ring-1 ring-blue-500/50" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+              rojosoftConfig.flow === 'A' ? "bg-white/10 text-white shadow-md ring-1 ring-white/20" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
             )}
           >
-            <Briefcase className={cn("w-4 h-4 mb-1", rojosoftConfig.flow === 'A' ? "animate-pulse" : "")} /> 
+            <Wallet className={cn("w-4 h-4 mb-1", rojosoftConfig.flow === 'A' ? "text-blue-400" : "opacity-70")} /> 
             Cuenta Corriente
-            <span className="text-[8px] opacity-70 mt-0.5 tracking-tight font-medium">Servicios o Varios</span>
+            <span className="text-[8px] opacity-70 mt-0.5 tracking-tight font-medium">Servicios</span>
           </button>
           <button 
             onClick={() => handleConfigChange('flow', 'B')}
             className={cn(
               "flex-1 flex flex-col items-center justify-center gap-1.5 py-3 rounded-lg text-[10px] font-black uppercase transition-all duration-300 mx-1",
-              rojosoftConfig.flow === 'B' ? "bg-indigo-600 text-white shadow-md ring-1 ring-indigo-500/50" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+              rojosoftConfig.flow === 'B' ? "bg-white/10 text-white shadow-md ring-1 ring-white/20" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
             )}
           >
-            <ShoppingBag className={cn("w-4 h-4 mb-1", rojosoftConfig.flow === 'B' ? "animate-pulse" : "")} /> 
+            <Store className={cn("w-4 h-4 mb-1", rojosoftConfig.flow === 'B' ? "text-indigo-400" : "opacity-70")} /> 
             Compras
-            <span className="text-[8px] opacity-70 mt-0.5 tracking-tight font-medium">Insumos y Bienes</span>
+            <span className="text-[8px] opacity-70 mt-0.5 tracking-tight font-medium">Insumos</span>
           </button>
           <button 
             onClick={() => handleConfigChange('flow', 'C')}
             className={cn(
-              "flex-1 flex flex-col items-center justify-center gap-1.5 py-3 rounded-lg text-[10px] font-black uppercase transition-all duration-300",
-              rojosoftConfig.flow === 'C' ? "bg-emerald-600 text-white shadow-md ring-1 ring-emerald-500/50" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+              "flex-[1.2] flex flex-col items-center justify-center gap-1.5 py-3 rounded-lg text-[10px] font-black uppercase transition-all duration-300",
+              rojosoftConfig.flow === 'C' ? "bg-white/10 text-white shadow-md ring-1 ring-white/20" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
             )}
           >
-            <Database className={cn("w-4 h-4 mb-1", rojosoftConfig.flow === 'C' ? "animate-pulse" : "")} /> 
+            <Landmark className={cn("w-4 h-4 mb-1", rojosoftConfig.flow === 'C' ? "text-emerald-400" : "opacity-70")} /> 
             Retenciones
             <span className="text-[8px] opacity-70 mt-0.5 tracking-tight font-medium">IIBB / Ganancias / IVA</span>
+          </button>
+          <button 
+            onClick={() => handleConfigChange('flow', 'D')}
+            className={cn(
+              "flex-1 flex flex-col items-center justify-center gap-1.5 py-3 rounded-lg text-[10px] font-black uppercase transition-all duration-300 ml-1",
+              rojosoftConfig.flow === 'D' ? "bg-white/10 text-white shadow-md ring-1 ring-white/20" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+            )}
+          >
+            <Truck className={cn("w-4 h-4 mb-1", rojosoftConfig.flow === 'D' ? "text-orange-400" : "opacity-70")} /> 
+            C. de Porte
+            <span className="text-[8px] opacity-70 mt-0.5 tracking-tight font-medium">Logística / Granos</span>
           </button>
         </div>
 
@@ -1304,7 +1331,8 @@ SELECT Cuenta, Nombre FROM CLIENTE;
         </section>
 
         {/* Detailed Items Table */}
-        <section className={cn("bg-white dark:bg-slate-900 border rounded-xl overflow-hidden shadow-sm transition-colors duration-200", isMatchAprobado ? "border-emerald-200 dark:border-emerald-900/50" : "border-slate-200 dark:border-slate-800")}>
+        {rojosoftConfig.flow !== 'D' && (
+        <section className={cn("bg-white dark:bg-slate-900 border rounded-xl overflow-hidden shadow-sm transition-colors duration-200 mb-6", isMatchAprobado ? "border-emerald-200 dark:border-emerald-900/50" : "border-slate-200 dark:border-slate-800")}>
           <div className={cn("px-4 py-2 border-b flex items-center justify-between cursor-pointer", isMatchAprobado ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-900/50" : "bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800")} onClick={() => toggleSection('detalle')}>
             <div className="flex items-center gap-2">
               {expandedSections.detalle ? <ChevronUp className={cn("w-3 h-3", isMatchAprobado ? "text-emerald-500" : "text-slate-400")} /> : <ChevronDown className={cn("w-3 h-3", isMatchAprobado ? "text-emerald-500" : "text-slate-400")} />}
@@ -1549,9 +1577,10 @@ SELECT Cuenta, Nombre FROM CLIENTE;
             )}
           </AnimatePresence>
         </section>
+        )}
 
         {/* Impuestos Section */}
-        {rojosoftConfig.flow !== 'C' && (
+        {rojosoftConfig.flow !== 'C' && rojosoftConfig.flow !== 'D' && (
           <section className="border rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-sm transition-all duration-300 mb-6">
             <div className="px-5 py-3 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center cursor-pointer bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors" onClick={() => toggleSection('impuestos')}>
               <div className="flex items-center gap-2">
@@ -1756,6 +1785,63 @@ SELECT Cuenta, Nombre FROM CLIENTE;
                             })()}
                           </div>
                         </>
+                      ) : rojosoftConfig.flow === 'D' ? (
+                        <>
+                          <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-4">Detalle Logístico / Granos</div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="p-4 bg-white/10 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
+                              <div className="text-[10px] font-black text-slate-400 mb-2 uppercase">Origen</div>
+                              <div className="flex justify-between items-center text-xs">
+                                <span className="text-slate-600 dark:text-slate-400 font-medium">Kgs Bruto</span>
+                                <span className="font-mono font-bold text-slate-900 dark:text-white">{localData.carta_porte?.KgsBruto || '-'}</span>
+                              </div>
+                              <div className="flex justify-between items-center text-xs">
+                                <span className="text-slate-600 dark:text-slate-400 font-medium">Kgs Tara</span>
+                                <span className="font-mono font-bold text-slate-900 dark:text-white">{localData.carta_porte?.KgsTara || '-'}</span>
+                              </div>
+                              <div className="flex justify-between items-center text-xs pt-2 border-t border-slate-200 dark:border-slate-800">
+                                <span className="text-slate-600 dark:text-slate-400 font-medium">Kgs Neto</span>
+                                <span className="font-mono font-bold text-slate-900 dark:text-white">{localData.carta_porte?.KgsNeto || '-'}</span>
+                              </div>
+                            </div>
+                            <div className="p-4 bg-white/10 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
+                              <div className="text-[10px] font-black text-slate-400 mb-2 uppercase">G-Descarga</div>
+                              <div className="flex justify-between items-center text-xs">
+                                <span className="text-slate-600 dark:text-slate-400 font-medium">Kgs Bruto</span>
+                                <span className="font-mono font-bold text-orange-600 dark:text-orange-500">{localData.carta_porte?.KgsBrutoDescarga || '-'}</span>
+                              </div>
+                              <div className="flex justify-between items-center text-xs">
+                                <span className="text-slate-600 dark:text-slate-400 font-medium">Kgs Tara</span>
+                                <span className="font-mono font-bold text-orange-600 dark:text-orange-500">{localData.carta_porte?.KgsTaraDescarga || '-'}</span>
+                              </div>
+                              <div className="flex justify-between items-center text-xs pt-2 border-t border-slate-200 dark:border-slate-800">
+                                <span className="text-slate-600 dark:text-slate-400 font-medium">Kgs Neto</span>
+                                <span className="font-mono font-bold text-orange-600 dark:text-orange-500 text-lg">{localData.carta_porte?.KgsNetoDescarga || '-'}</span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="mt-4 p-4 bg-white/10 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
+                              <div className="flex justify-between items-center text-xs">
+                                <span className="text-slate-600 dark:text-slate-400 font-medium">Chofer</span>
+                                <span className="font-bold text-slate-900 dark:text-white">{localData.carta_porte?.Chofer || '-'} ({localData.carta_porte?.NroRegistroChofer || '-'})</span>
+                              </div>
+                              <div className="flex justify-between items-center text-xs">
+                                <span className="text-slate-600 dark:text-slate-400 font-medium">Dominios</span>
+                                <span className="font-bold text-slate-900 dark:text-white">{localData.carta_porte?.PatenteChasis} / {localData.carta_porte?.PatenteAcoplado}</span>
+                              </div>
+                              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-200 dark:border-slate-800 mt-2">
+                                <div className="flex flex-col gap-1">
+                                  <span className="text-[9px] text-slate-500 uppercase font-black">Distancia</span>
+                                  <span className="font-mono font-bold text-slate-900 dark:text-white">{localData.carta_porte?.KilometrosAsfalto || '0'} km</span>
+                                </div>
+                                <div className="flex flex-col gap-1 text-right">
+                                  <span className="text-[9px] text-slate-500 uppercase font-black">Tarifa Est.</span>
+                                  <span className="font-mono font-bold text-slate-900 dark:text-white">${localData.carta_porte?.TarifaAsfalto || '0'}</span>
+                                </div>
+                              </div>
+                          </div>
+                        </>
                       ) : (
                         <>
                           <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-4">
@@ -1805,16 +1891,23 @@ SELECT Cuenta, Nombre FROM CLIENTE;
             );
           })()}
 
-          <section className="bg-slate-50 border border-slate-200 dark:bg-slate-900 dark:border-slate-800 rounded-xl p-6 shadow-sm flex flex-col justify-between transition-colors duration-200 relative overflow-hidden">
-            <div className="absolute right-0 top-1/2 -translate-y-1/2 opacity-5 pointer-events-none">
-                <Database className="w-64 h-64 -mr-16" />
+          <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 lg:p-8 shadow-xl flex flex-col justify-between transition-colors duration-300 relative overflow-hidden group">
+            {/* Ambient Background Glow */}
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 dark:from-blue-900/10 via-transparent to-indigo-50/50 dark:to-indigo-900/10 pointer-events-none opacity-50"></div>
+            
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 opacity-[0.03] dark:opacity-[0.02] pointer-events-none group-hover:opacity-[0.05] dark:group-hover:opacity-[0.04] transition-opacity duration-700">
+                <Server className="w-80 h-80 -mr-20" />
             </div>
-            <div className="space-y-3 relative z-10 mb-6">
-              <h3 className="text-[14px] font-black text-slate-800 dark:text-white tracking-widest flex items-center gap-2 uppercase">
-                <Zap className="w-5 h-5 text-emerald-500 fill-current" /> Finalizar e Insertar Comprobante
+
+            <div className="space-y-4 relative z-10 mb-8 border-b border-slate-200 dark:border-white/10 pb-6">
+              <h3 className="text-lg font-black text-slate-900 dark:text-white tracking-widest flex items-center gap-3 uppercase">
+                <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-500/20 border border-blue-200 dark:border-blue-500/30 flex items-center justify-center shadow-inner dark:shadow-[0_0_15px_rgba(59,130,246,0.3)]">
+                  <Zap className="w-5 h-5 text-blue-600 dark:text-blue-400 fill-current animate-pulse" />
+                </div>
+                Inserción de Comprobante
               </h3>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium pb-4 border-b border-slate-200 dark:border-slate-800 tracking-wide uppercase">
-                Al confirmar, este comprobante se registrará mediante interfaz SOAP en su sistema ERP. Verifique los datos obligatorios previamente.
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-bold tracking-[0.15em] uppercase leading-relaxed max-w-xl">
+                El sistema está preparado para enviar la estructura directamente a tu Sistema. Asegúrese de que los datos estén correctos antes de enviar.
               </p>
             </div>
             
@@ -1822,20 +1915,20 @@ SELECT Cuenta, Nombre FROM CLIENTE;
               <AnimatePresence>
                 {integrationStatus && (
                   <motion.div 
-                    initial={{ opacity: 0, scale: 0.95 }} 
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
+                    initial={{ opacity: 0, y: 10 }} 
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.98 }}
                     className={cn(
-                      "p-4 rounded-xl flex flex-col gap-3 text-xs uppercase tracking-widest mb-6",
-                      integrationStatus.success ? "bg-emerald-50 dark:bg-emerald-500/10 border-2 border-emerald-200 dark:border-emerald-500/30" : "bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-200 dark:border-rose-500/30"
+                      "p-5 rounded-xl flex flex-col gap-3 text-xs uppercase tracking-widest mb-6 backdrop-blur-sm",
+                      integrationStatus.success ? "bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.05)]" : "bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-500/30 shadow-[0_0_20px_rgba(244,63,94,0.05)]"
                     )}
                   >
                     <div className={cn("flex gap-4 items-center font-black", integrationStatus.success ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400")}>
-                      <div className={cn("p-2 rounded-full", integrationStatus.success ? "bg-emerald-100 dark:bg-emerald-900/50" : "bg-rose-100 dark:bg-rose-900/50")}>
+                      <div className={cn("p-2.5 rounded-xl shadow-sm", integrationStatus.success ? "bg-emerald-100 dark:bg-emerald-900/50" : "bg-rose-100 dark:bg-rose-900/50")}>
                          {integrationStatus.success ? <Check className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0" />}
                       </div>
                       <div>
-                        <p className="text-sm">{integrationStatus.success ? 'Proceso Finalizado Exitosamente' : 'Error en la Integración'}</p>
+                        <p className="text-sm">{integrationStatus.success ? 'Transcripción SOAP Exitosa' : 'Fallo en Integración Neural'}</p>
                         <p className="text-[11px] mt-1 opacity-80 normal-case font-bold leading-relaxed">
                           {integrationStatus.success 
                             ? (integrationStatus.message || 'El comprobante ha sido insertado correctamente en el ERP.') 
@@ -1857,7 +1950,7 @@ SELECT Cuenta, Nombre FROM CLIENTE;
                             ? "bg-emerald-100/50 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300"
                             : "bg-rose-100/50 dark:bg-rose-900/50 text-rose-800 dark:text-rose-300"
                         )}>
-                          <span>RESPUESTA SERVIDOR</span>
+                          <span>DIAGNÓSTICO DEL SERVIDOR</span>
                         </div>
                         <pre className={cn(
                           "p-3 text-[10px] font-mono overflow-auto max-h-48 normal-case whitespace-pre-wrap",
@@ -1882,7 +1975,7 @@ SELECT Cuenta, Nombre FROM CLIENTE;
                             ? "bg-emerald-100/50 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300"
                             : "bg-rose-100/50 dark:bg-rose-900/50 text-rose-800 dark:text-rose-300"
                         )}>
-                          <span>PAYLOAD ENVIADO (SOAP)</span>
+                          <span>PAYLOAD XML COMPILADO</span>
                         </div>
                         <pre className={cn(
                           "p-3 text-[10px] font-mono overflow-auto max-h-48 normal-case whitespace-pre-wrap",
@@ -1903,9 +1996,9 @@ SELECT Cuenta, Nombre FROM CLIENTE;
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
                     <button 
                       onClick={() => setIsEditing(false)}
-                      className="w-full h-14 flex items-center justify-center gap-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black transition-all shadow-[0_0_25px_rgba(5,150,105,0.3)] active:scale-[0.98] tracking-[0.2em] uppercase group"
+                      className="w-full h-14 flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-black transition-all shadow-[0_8px_20px_rgba(37,99,235,0.25)] dark:shadow-[0_0_25px_rgba(59,130,246,0.3)] active:scale-[0.98] tracking-[0.2em] uppercase group"
                     >
-                      <Save className="w-5 h-5 group-hover:scale-110 transition-transform" /> APROBAR PARA INSERCIÓN
+                      <Save className="w-5 h-5 group-hover:scale-110 transition-transform" /> APROBAR ESTRUCTURA
                     </button>
                   </motion.div>
                 ) : (
@@ -1914,15 +2007,15 @@ SELECT Cuenta, Nombre FROM CLIENTE;
                       onClick={() => setIsEditing(true)}
                       className="flex-1 h-14 flex items-center justify-center gap-2 bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-black transition-all active:scale-[0.98] tracking-[0.1em] uppercase border-2 border-slate-200 dark:border-slate-700 shadow-sm"
                     >
-                      <Edit3 className="w-4 h-4 opacity-70" /> VOLVER A EDITAR
+                      <Edit3 className="w-4 h-4 opacity-70" /> REVISAR DATOS
                     </button>
                     <button 
                       onClick={handleInsert}
                       disabled={isInserting || (rojosoftConfig.flow === 'B' && rojosoftConfig.porcentaje1 + rojosoftConfig.porcentaje2 !== 100)} 
-                      className="flex-[2] h-14 flex items-center justify-center gap-3 bg-slate-900 dark:bg-slate-100 hover:bg-black dark:hover:bg-white text-white dark:text-slate-900 rounded-xl text-xs font-black transition-all shadow-[0_10px_30px_rgba(0,0,0,0.15)] active:scale-[0.98] tracking-[0.1em] uppercase disabled:bg-slate-300 disabled:dark:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed group border-2 border-transparent"
+                      className="flex-[2] h-14 flex items-center justify-center gap-3 bg-slate-900 dark:bg-white hover:bg-black dark:hover:bg-slate-100 text-white dark:text-slate-900 rounded-xl text-xs font-black transition-all shadow-[0_10px_30px_rgba(0,0,0,0.15)] dark:shadow-[0_0_30px_rgba(255,255,255,0.2)] active:scale-[0.98] tracking-[0.15em] uppercase disabled:bg-slate-300 disabled:dark:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed group border-2 border-transparent"
                     >
-                      {isInserting ? 'PROCESANDO INSERCIÓN...' : 'CONFIRMAR E INSERTAR EN ERP'}
-                      {isInserting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5 fill-current group-hover:scale-110 transition-transform text-white dark:text-slate-900" />}
+                      {isInserting ? 'INICIANDO TRANSMISIÓN...' : 'CONFIRMAR INSERCIÓN'}
+                      {isInserting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Database className="w-5 h-5 fill-current group-hover:scale-110 transition-transform text-white dark:text-slate-900" />}
                     </button>
                   </motion.div>
                 )}

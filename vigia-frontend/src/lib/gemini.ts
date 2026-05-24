@@ -61,7 +61,34 @@ const EXTRACTION_SCHEMA = {
       }
     },
     cae_cai: { type: Type.STRING },
-    vencimiento_cae: { type: Type.STRING }
+    vencimiento_cae: { type: Type.STRING },
+    carta_porte: {
+      type: Type.OBJECT,
+      properties: {
+        CarPorte: { type: Type.STRING },
+        Cosecha: { type: Type.STRING },
+        Chofer: { type: Type.STRING },
+        NroRegistroChofer: { type: Type.STRING },
+        PatenteChasis: { type: Type.STRING },
+        PatenteAcoplado: { type: Type.STRING },
+        KilometrosAsfalto: { type: Type.STRING },
+        TarifaAsfalto: { type: Type.STRING },
+        FechaCarPorte: { type: Type.STRING },
+        FechaVtoCarPorte: { type: Type.STRING },
+        FechaIngreso: { type: Type.STRING },
+        FechaSalida: { type: Type.STRING },
+        FechaDescarga: { type: Type.STRING },
+        KgsBruto: { type: Type.STRING },
+        KgsTara: { type: Type.STRING },
+        KgsNeto: { type: Type.STRING },
+        KgsBrutoDescarga: { type: Type.STRING },
+        KgsTaraDescarga: { type: Type.STRING },
+        KgsNetoDescarga: { type: Type.STRING },
+        CUIT_Titular: { type: Type.STRING },
+        CUIT_Remitente_Comercial: { type: Type.STRING },
+        CUIT_Destinatario: { type: Type.STRING }
+      }
+    }
   }
 };
 
@@ -109,12 +136,32 @@ export async function extractCheckData(base64Data: string, mimeType: string) {
       }
     });
 
-    const text = response.text;
+    let text = response.text;
     if (!text) {
       throw new Error("No se pudo extraer información del cheque.");
     }
     
-    const parsedData = JSON.parse(text);
+    // Sanitize basic markdown formatting
+    let cleanText = text.trim();
+    if (cleanText.startsWith('```json')) {
+      cleanText = cleanText.replace(/^```json/, '').replace(/```$/, '').trim();
+    } else if (cleanText.startsWith('```')) {
+      cleanText = cleanText.replace(/^```/, '').replace(/```$/, '').trim();
+    }
+
+    // Defensive handling for trailing commas or truncated JSON (simple fix for cut off)
+    let parsedData;
+    try {
+      parsedData = JSON.parse(cleanText);
+    } catch (parseError) {
+      console.warn("JSON syntax error, attempting manual cleanup...", parseError);
+      cleanText = cleanText.replace(/,\s*([}\]])/g, '$1');
+      try {
+        parsedData = JSON.parse(cleanText);
+      } catch (secondError: any) {
+        throw new Error(`Error en el formato de respuesta de IA: ${secondError.message}. Verifica que el documento sea legible.`);
+      }
+    }
 
     // Asegurar formato CUIT con guiones
     if (parsedData.cuit_librador && !parsedData.cuit_librador.includes('-')) {
@@ -147,6 +194,7 @@ export async function extractDocumentData(base64Data: string, mimeType: string) 
   - Facturas de Compra (Artículos/Stock)
   - Facturas de Servicios (Gastos)
   - Certificados de Retención (IIBB, Ganancias, SUSS, etc.) - CRÍTICO: Identificar claramente si es una Retención.
+  - Cartas de Porte Electrónicas (Logística/Agro) - CRÍTICO: Identificar si es Carta de Porte.
 
   REGLAS DE ORO DE EXTRACCIÓN:
   1. Identificar tipo de comprobante, punto de venta (4 dígitos), número (8 dígitos) y letra (A, B, C, M, X).
@@ -159,7 +207,17 @@ export async function extractDocumentData(base64Data: string, mimeType: string) 
      - En 'detalle', crear una línea técnica resumiendo la retención.
   5. Extraer ítems de detalle: descripción, cantidad, precio unitario y total.
   6. Devolver la fecha en formato ISO 8601 (YYYY-MM-DD).
-  7. El campo 'tipo' DEBE contener explícitamente la palabra 'RETENCION' si es un certificado de retención.`;
+  7. El campo 'tipo' DEBE contener explícitamente la palabra 'RETENCION' si es un certificado de retención, o 'CARTA DE PORTE' si es Carta de Porte.
+  8. PARA CARTA DE PORTE ELECTRÓNICA, rellena únicamente el objeto 'carta_porte' con estas reglas estrictas:
+      - 'CarPorte': Extrae el 'CTG'.
+      - 'Cosecha': Extrae la 'Campaña' (ej. 2526).
+      - Identifica el 'Chofer'. Extrae CUIT numérico para 'NroRegistroChofer' y Apellido/Nombre para 'Chofer'.
+      - Identifica 'Dominios'. La primera es 'PatenteChasis', la segunda 'PatenteAcoplado'.
+      - 'KilometrosAsfalto': Extrae kms a recorrer. 'TarifaAsfalto': Extrae tarifa.
+      - Fechas (ISO 8601 T): 'FechaCarPorte' (Emisión), 'FechaVtoCarPorte' (Vencimiento). En sección Descarga: 'FechaIngreso' (Fecha Arribo), 'FechaSalida' y 'FechaDescarga' (Descarga: Fecha).
+      - Pesos Origen: 'KgsBruto', 'KgsTara', 'KgsNeto' (de la sección principal).
+      - Pesos Descarga: 'KgsBrutoDescarga', 'KgsTaraDescarga', 'KgsNetoDescarga' (de la sección G-DESCARGA).
+      - Clientes: 'CUIT_Titular' (Titular Carta de Porte), 'CUIT_Remitente_Comercial' (Remitente Comercial Profesional/Productor), 'CUIT_Destinatario' (Destinatario). Sólo Extrae CUITs (números).`;
 
   try {
     const response = await ai.models.generateContent({
@@ -178,12 +236,33 @@ export async function extractDocumentData(base64Data: string, mimeType: string) 
       }
     });
 
-    const text = response.text;
+    let text = response.text;
     if (!text) {
       throw new Error("No data extracted from document.");
     }
     
-    const parsedData = JSON.parse(text);
+    // Sanitize basic markdown formatting
+    let cleanText = text.trim();
+    if (cleanText.startsWith('```json')) {
+      cleanText = cleanText.replace(/^```json/, '').replace(/```$/, '').trim();
+    } else if (cleanText.startsWith('```')) {
+      cleanText = cleanText.replace(/^```/, '').replace(/```$/, '').trim();
+    }
+
+    // Defensive handling for trailing commas or truncated JSON (simple fix for cut off)
+    let parsedData;
+    try {
+      parsedData = JSON.parse(cleanText);
+    } catch (parseError) {
+      console.warn("JSON syntax error, attempting manual cleanup...", parseError);
+      // Remove trailing commas before closing braces/brackets
+      cleanText = cleanText.replace(/,\s*([}\]])/g, '$1');
+      try {
+        parsedData = JSON.parse(cleanText);
+      } catch (secondError: any) {
+        throw new Error(`Error en el formato de respuesta de IA: ${secondError.message}. Verifica que el documento sea legible.`);
+      }
+    }
 
     // Asegurar CUIT con guiones (XX-XXXXXXXX-X)
     if (parsedData.cabecera?.cuit_emisor && !parsedData.cabecera.cuit_emisor.includes('-')) {

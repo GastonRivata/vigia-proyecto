@@ -20,7 +20,7 @@ export interface RojosoftConfig {
   moneda: string;
   condicionPago: string;
   cotizacion?: number;
-  flow: 'A' | 'B' | 'C';
+  flow: 'A' | 'B' | 'C' | 'D';
   alicuotaRetencion?: number;
   importeBaseRetencion?: number;
   provinciaRetencion?: string;
@@ -240,7 +240,7 @@ export function jsonToRojosoftSoapXml(jsonData: any, config: RojosoftConfig) {
       }
     };
     return js2xml(xmlObj, { compact: true, spaces: 2 });
-  } else {
+  } else if (config.flow === 'B') {
     // servicefactura (Factura de Compra / Artículos)
     
     // Calculate totals exactly from bodies first to ensure perfect match with cabecera
@@ -278,7 +278,7 @@ export function jsonToRojosoftSoapXml(jsonData: any, config: RojosoftConfig) {
         AlicuotaPercepcionDGR: Number(alicuotaDgr).toFixed(2),
         ImportePercepcionDGR: Number(percDgr).toFixed(2),
         ImporteNeto: Number(neto).toFixed(2),
-        FacturaAfe: String(item.id_cuerpo_facafe || config.facturaAfe || 0),
+        FacturaAfe: String(config.facturaAfe || 0),
         FacturaCuerpoAfe: String(item.id_cuerpo_afe || config.facturaCuerpoAfe || 0),
         CantidadAfectar: (config.facturaAfe && (item.id_cuerpo_afe || config.facturaCuerpoAfe)) ? Number(item.cantidad || 1).toFixed(2) : '0.00',
         ActualizaCtaCte: '1',
@@ -375,5 +375,133 @@ export function jsonToRojosoftSoapXml(jsonData: any, config: RojosoftConfig) {
       }
     };
     return js2xml(xmlObj, { compact: true, spaces: 2 });
+  } else if (config.flow === 'D') {
+    const d = jsonData.carta_porte || {};
+    
+    // Fallback for dates
+    const fd = (dStr: string) => {
+      if (!dStr) return new Date().toISOString().split('.')[0];
+      return dStr.includes('T') ? dStr : dStr + 'T00:00:00';
+    };
+
+    const xmlStr = `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Header>
+    <AuthenticationHeader xmlns="http://www.rojosoft.com/webservice/servicedescarga/">
+      <Username>theeye</Username>
+      <Password>theeye</Password>
+    </AuthenticationHeader>
+  </soap:Header>
+  <soap:Body>
+    <Insertar xmlns="http://www.rojosoft.com/webservice/servicedescarga/">
+      <recDescarga>
+        <IDTabla>0</IDTabla>
+        <IDTablaWS></IDTablaWS>
+        <Descarga>0</Descarga>
+        <Negocio>0</Negocio>
+        <DescargaDirecto>0</DescargaDirecto>
+        <DescargaOrdenCarga>0</DescargaOrdenCarga>
+        <DescargaTransferencia>0</DescargaTransferencia>
+        <TurnoDescarga>0</TurnoDescarga>
+        <Planta>PB</Planta>
+        <PlantaStock>C1</PlantaStock>
+        <Grano>SJ</Grano>
+        <Cosecha>${d.Cosecha || ''}</Cosecha>
+        <ClienteVendedor>0</ClienteVendedor>
+        <ClienteComprador>0</ClienteComprador>
+        <ClienteCorredor>0</ClienteCorredor>
+        <ClienteRecibidor>0</ClienteRecibidor>
+        <ClienteRemitente>0</ClienteRemitente>
+        <ClienteDestinatario>0</ClienteDestinatario>
+        <ClienteCyO1>0</ClienteCyO1>
+        <Silo>C1SJ</Silo>
+        <FechaIngreso>${fd(d.FechaIngreso)}</FechaIngreso>
+        <FechaSalida>${fd(d.FechaSalida)}</FechaSalida>
+        <LugarProcedencia>0002</LugarProcedencia>
+        <LugarDestino>1041</LugarDestino>
+        <Observaciones>Ingresado por VIGIA</Observaciones>
+        <Estado>FI</Estado>
+        <DescargaCodMov>CE</DescargaCodMov>
+        <TipoTrans>CA</TipoTrans>
+        <ClienteTransportista>0</ClienteTransportista>
+        <Chofer>${d.Chofer || ''}</Chofer>
+        <NroRegistroChofer>${d.NroRegistroChofer || ''}</NroRegistroChofer>
+        <PatenteChasis>${d.PatenteChasis || ''}</PatenteChasis>
+        <PatenteAcoplado>${d.PatenteAcoplado || ''}</PatenteAcoplado>
+        <FleteTipoTarifa>Tarifa Única</FleteTipoTarifa>
+        <KilometrosAsfalto>${d.KilometrosAsfalto || '0'}</KilometrosAsfalto>
+        <KilometrosTierra>0</KilometrosTierra>
+        <TarifaAsfalto>${d.TarifaAsfalto || '0'}</TarifaAsfalto>
+        <TarifaTierra>0</TarifaTierra>
+        <ImporteGravadoFlete>0</ImporteGravadoFlete>
+        <ImporteNoGravadoFlete>0</ImporteNoGravadoFlete>
+        <AlicuotaIVAFlete>0</AlicuotaIVAFlete>
+        <ImporteIVAFlete>0</ImporteIVAFlete>
+        <ImporteNetoFlete>0</ImporteNetoFlete>
+        <ClienteFlete>0</ClienteFlete>
+        <ImporteAdelantoFlete>0</ImporteAdelantoFlete>
+        <Comprobante>CP</Comprobante>
+        <Romaneo>0</Romaneo>
+        <CarPorte>${d.CarPorte || ''}</CarPorte>
+        <FechaCarPorte>${fd(d.FechaCarPorte)}</FechaCarPorte>
+        <FechaVtoCarPorte>${fd(d.FechaVtoCarPorte)}</FechaVtoCarPorte>
+        <CAUCarPorte>0</CAUCarPorte>
+        <TipoCarPorte>0</TipoCarPorte>
+        <TipoPeso>0</TipoPeso>
+        <TipoCalidad>0</TipoCalidad>
+        <Vale>0</Vale>
+        <Ticket>0</Ticket>
+        <Contrato></Contrato>
+        <KgsProcedencia>0</KgsProcedencia>
+        <KgsBruto>${d.KgsBruto || '0'}</KgsBruto>
+        <KgsTara>${d.KgsTara || '0'}</KgsTara>
+        <KgsNeto>${d.KgsNeto || '0'}</KgsNeto>
+        <KgsMermas>0</KgsMermas>
+        <KgsTotal>${d.KgsNeto || '0'}</KgsTotal>
+        <PesoManual>0</PesoManual>
+        <CantidadBolsa>0</CantidadBolsa>
+        <Grado>2</Grado>
+        <Factor>100</Factor>
+        <HonorariosCamara>0</HonorariosCamara>
+        <HonorariosCamaraRecup>0</HonorariosCamaraRecup>
+        <Fumigada>0</Fumigada>
+        <FechaDescarga>${fd(d.FechaDescarga)}</FechaDescarga>
+        <KgsBrutoDescarga>${d.KgsBrutoDescarga || '0'}</KgsBrutoDescarga>
+        <KgsTaraDescarga>${d.KgsTaraDescarga || '0'}</KgsTaraDescarga>
+        <KgsNetoDescarga>${d.KgsNetoDescarga || '0'}</KgsNetoDescarga>
+        <KgsMermasDescarga>0</KgsMermasDescarga>
+        <KgsTotalDescarga>${d.KgsNetoDescarga || '0'}</KgsTotalDescarga>
+        <CargaDescarga>0</CargaDescarga>
+        <LiquidaFleteUI>0</LiquidaFleteUI>
+        <GranoVariedad>0</GranoVariedad>
+        <NumeroAFIP001>0</NumeroAFIP001>
+        <NumeroAFIP002>0</NumeroAFIP002>
+        <DescargaMermas>
+          <typDescargaMerma>
+            <IDTabla>0</IDTabla>
+            <Descarga>0</Descarga>
+            <DescargaTipoMerma>HU</DescargaTipoMerma>
+            <Porcentaje>0</Porcentaje>
+            <PorcentajeMerma>0</PorcentajeMerma>
+            <KgsBaseCalculo>0</KgsBaseCalculo>
+            <KgsMerma>0</KgsMerma>
+          </typDescargaMerma>
+          <typDescargaMerma>
+             <IDTabla>0</IDTabla>
+             <Descarga>0</Descarga>
+             <DescargaTipoMerma>ZA</DescargaTipoMerma>
+             <Porcentaje>0</Porcentaje>
+             <PorcentajeMerma>0</PorcentajeMerma>
+             <KgsBaseCalculo>0</KgsBaseCalculo>
+             <KgsMerma>0</KgsMerma>
+          </typDescargaMerma>
+        </DescargaMermas>
+      </recDescarga>
+    </Insertar>
+  </soap:Body>
+</soap:Envelope>`;
+    return xmlStr;
   }
+  
+  return '';
 }
