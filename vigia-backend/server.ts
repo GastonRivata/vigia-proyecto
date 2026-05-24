@@ -7,7 +7,7 @@ import fs from "fs";
 import axios from "axios";
 import https from "https";
 import { createServer as createViteServer } from "vite";
-import { jsonToRojosoftSoapXml } from "./xmlConverter.ts"; 
+import { jsonToRojosoftSoapXml } from "./xmlConverter"; 
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"; // Bypass SSL verification for SOAP calls
 
@@ -62,24 +62,18 @@ async function getOrgSqlPool(orgId: string, fallbackConfig?: any) {
 
     let instanceVal = (config.instanceName && config.instanceName.trim() !== '') ? config.instanceName.trim() : autoInstanceVal;
 
-    
     const sqlConfigOpts: sql.config = {
-    user: process.env.DB_USER || 'tu_usuario_sql',
-    password: process.env.DB_PASSWORD || 'tu_contraseña_sql',
-    server: process.env.DB_SERVER || 'ip_o_dominio_de_tu_servidor', // NO uses localhost aquí en prod
-    database: process.env.DB_NAME || 'IA',
-    options: {
-        encrypt: false, // true si es Azure, false si es SQL Server local normal
-        trustServerCertificate: true // Importante para evitar errores de certificados SSL
-    },
-    connectionTimeout: 30000,
-      requestTimeout: 30000
-};
-
-sql.connect(sqlConfigOpts)
-   .then(() => console.log("Conectado a la BD"))
-   .catch(err => console.log("Error de conexión:", err));
-    
+      server: sqlServerHost,
+      user: config.user,
+      password: config.password || config.pass,
+      database: config.database,
+      options: {
+        encrypt: false,
+        trustServerCertificate: true
+      },
+      connectionTimeout: sqlServerHost.toLowerCase().includes('localhost') ? 2000 : 15000,
+      requestTimeout: 15000
+    };
     if (instanceVal) {
       sqlConfigOpts.options!.instanceName = instanceVal;
     } else {
@@ -105,7 +99,7 @@ async function logUsage(orgId: string, userId: string, docName: string, docType:
 
 async function startServer() {
   const app = express();
-  const PORT = Number(process.env.PORT) || 3000;
+  const PORT = 3000;
 
   // Habilitar CORS para que el frontend pueda comunicarse sin problemas
   app.use(cors());
@@ -200,12 +194,25 @@ async function startServer() {
         if (erpHost.endsWith('/')) {
           erpHost = erpHost.slice(0, -1);
         }
-        const endpoint = (rojosoftConfig.flow === 'A' || rojosoftConfig.flow === 'C') ? (sqlConfig.endpointServicios || '/IA/ServiceCuentaCorriente.asmx') : (sqlConfig.endpointCompras || '/IA/ServiceFactura.asmx');
+        let endpoint = '';
+        if (rojosoftConfig.flow === 'A' || rojosoftConfig.flow === 'C') {
+          endpoint = sqlConfig.endpointServicios || '/IA/ServiceCuentaCorriente.asmx';
+        } else if (rojosoftConfig.flow === 'D') {
+          endpoint = '/IA/ServiceDescarga.asmx';
+        } else {
+          endpoint = sqlConfig.endpointCompras || '/IA/ServiceFactura.asmx';
+        }
+
         const soapUrl = `${erpHost}${endpoint}`;
         
-        let soapAction = (rojosoftConfig.flow === 'A' || rojosoftConfig.flow === 'C')
-          ? 'http://www.rojosoft.com/webservice/serviceCuentaCorriente/Insertar'
-          : 'http://www.rojosoft.com/webservice/servicefactura/Insertar';
+        let soapAction = '';
+        if (rojosoftConfig.flow === 'A' || rojosoftConfig.flow === 'C') {
+          soapAction = 'http://www.rojosoft.com/webservice/serviceCuentaCorriente/Insertar';
+        } else if (rojosoftConfig.flow === 'D') {
+          soapAction = 'http://www.rojosoft.com/webservice/servicedescarga/Insertar';
+        } else {
+          soapAction = 'http://www.rojosoft.com/webservice/servicefactura/Insertar';
+        }
 
         // Resolve custom SOAP actions if provided in custom endpoints lists
         if (sqlConfig?.customEndpoints && Array.isArray(sqlConfig.customEndpoints)) {
@@ -494,7 +501,7 @@ async function startServer() {
       const compResult = await pool.request().query(`
         SELECT Codigo, Descripcion 
         FROM Comprobante 
-        WHERE Codigo IN ('REMEF','FCOM','RTB','RTG','RTI')
+        WHERE Codigo IN ('REMEF','FCOM','RTB','RTG','RTI','FCOMS')
       `);
 
       res.json({
