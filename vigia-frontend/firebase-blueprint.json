@@ -1,0 +1,81 @@
+{
+  "entities": {
+    "Organization": {
+      "title": "Organization",
+      "description": "Represents a client tenant with their own SQL configuration and billing.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Display name of the organization" },
+        "sqlConfig": {
+          "type": "object",
+          "description": "SQL Server connection details",
+          "properties": {
+            "server": { "type": "string" },
+            "database": { "type": "string" },
+            "user": { "type": "string" },
+            "password": { "type": "string" },
+            "instanceName": { "type": "string" }
+          },
+          "required": ["server", "database", "user", "password"]
+        },
+        "billing": {
+          "type": "object",
+          "properties": {
+            "ratePerDocument": { "type": "number", "description": "Price per document extraction" },
+            "status": { "type": "string", "enum": ["active", "suspended", "trial"] }
+          }
+        },
+        "usage": {
+          "type": "object",
+          "properties": {
+            "totalExtractions": { "type": "number" },
+            "currentMonthExtractions": { "type": "number" },
+            "lastExtractionAt": { "type": "string", "format": "date-time" }
+          }
+        }
+      },
+      "required": ["name", "sqlConfig"]
+    },
+    "User": {
+      "title": "User",
+      "description": "System user profiles with role-based access.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "operator"] },
+        "orgId": { "type": "string", "description": "ID of the associated organization" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "role"]
+    },
+    "UsageLog": {
+      "title": "UsageLog",
+      "description": "Audit trail for every document processed for billing purposes.",
+      "type": "object",
+      "properties": {
+        "orgId": { "type": "string" },
+        "userId": { "type": "string" },
+        "documentName": { "type": "string" },
+        "type": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "cost": { "type": "number" }
+      },
+      "required": ["orgId", "userId", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/organizations/{orgId}": {
+      "schema": "Organization",
+      "description": "Client configurations"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/usage_logs/{logId}": {
+      "schema": "UsageLog",
+      "description": "Granular billing logs"
+    }
+  }
+}
