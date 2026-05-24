@@ -105,7 +105,7 @@ async function logUsage(orgId: string, userId: string, docName: string, docType:
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   // Habilitar CORS para que el frontend pueda comunicarse sin problemas
   app.use(cors());
