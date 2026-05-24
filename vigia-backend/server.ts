@@ -62,18 +62,22 @@ async function getOrgSqlPool(orgId: string, fallbackConfig?: any) {
 
     let instanceVal = (config.instanceName && config.instanceName.trim() !== '') ? config.instanceName.trim() : autoInstanceVal;
 
+    
     const sqlConfigOpts: sql.config = {
-      server: sqlServerHost,
-      user: config.user,
-      password: config.password || config.pass,
-      database: config.database,
-      options: {
-        encrypt: false,
-        trustServerCertificate: true
-      },
-      connectionTimeout: 30000,
+    user: process.env.DB_USER || 'tu_usuario_sql',
+    password: process.env.DB_PASSWORD || 'tu_contraseña_sql',
+    server: process.env.DB_SERVER || 'ip_o_dominio_de_tu_servidor', // NO uses localhost aquí en prod
+    database: process.env.DB_NAME || 'IA',
+    options: {
+        encrypt: false, // true si es Azure, false si es SQL Server local normal
+        trustServerCertificate: true // Importante para evitar errores de certificados SSL
+    },
+    connectionTimeout: 30000,
       requestTimeout: 30000
-    };
+};
+
+
+    
     if (instanceVal) {
       sqlConfigOpts.options!.instanceName = instanceVal;
     } else {
