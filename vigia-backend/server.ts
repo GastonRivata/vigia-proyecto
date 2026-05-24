@@ -76,7 +76,9 @@ async function getOrgSqlPool(orgId: string, fallbackConfig?: any) {
       requestTimeout: 30000
 };
 
-
+sql.connect(sqlConfigOpts)
+   .then(() => console.log("Conectado a la BD"))
+   .catch(err => console.log("Error de conexión:", err));
     
     if (instanceVal) {
       sqlConfigOpts.options!.instanceName = instanceVal;
