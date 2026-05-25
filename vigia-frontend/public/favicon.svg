@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <style>
+    .bg { fill: #ffffff; stroke: #e2e8f0; stroke-width: 4; }
+    .icon { stroke: #1e293b; stroke-width: 1.5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .icon-emerald { stroke: #10b981; stroke-width: 1.5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .icon-red { stroke: #ef4444; stroke-width: 1.5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #0f172a; stroke: #1e293b; }
+      .icon { stroke: #f1f5f9; }
+    }
+  </style>
+
+  <!-- Base Border -->
+  <rect x="2" y="2" width="96" height="96" rx="20" class="bg" />
+
+  <!-- Success Border Overlay -->
+  <rect x="2" y="2" width="96" height="96" rx="20" fill="none" stroke="#10b981" stroke-width="4" opacity="0">
+     <animate attributeName="opacity" values="0; 0; 1; 1; 0; 0" keyTimes="0; 0.54; 0.56; 0.84; 0.86; 1" dur="5s" repeatCount="indefinite" />
+  </rect>
+
+  <!-- Document Base (Lines inside) - Idle & Scanning Phase -->
+  <g class="icon" transform="translate(20 20) scale(2.5)">
+    <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+    <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+    
+    <!-- These horizontal lines fade out during Brain phase -->
+    <g>
+      <path d="M10 9H8" />
+      <path d="M16 13H8" />
+      <path d="M16 17H8" />
+      <animate attributeName="opacity" values="1; 1; 0; 0; 1; 1" keyTimes="0; 0.3; 0.32; 0.84; 0.86; 1" dur="5s" repeatCount="indefinite" />
+    </g>
+
+    <!-- Overall fade to 0.3 during Brain phase, and 0 during Success phase -->
+    <animate attributeName="opacity" values="1; 1; 0.3; 0.3; 0; 0; 1; 1" keyTimes="0; 0.3; 0.32; 0.54; 0.56; 0.84; 0.86; 1" dur="5s" repeatCount="indefinite" />
+  </g>
+
+  <!-- Success Document (FileCheck) - Phase 3 -->
+  <g class="icon-emerald" transform="translate(20 20) scale(2.5)" opacity="0">
+    <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+    <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+    <path d="m9 15 2 2 4-4" />
+    <animate attributeName="opacity" values="0; 0; 1; 1; 0; 0" keyTimes="0; 0.54; 0.56; 0.84; 0.86; 1" dur="5s" repeatCount="indefinite" />
+  </g>
+
+  <!-- Scanning Line - Phase 1 -->
+  <g opacity="0">
+    <rect x="0" y="0" width="100" height="4" fill="#ef4444" />
+    <animate attributeName="opacity" values="1; 1; 0; 0" keyTimes="0; 0.3; 0.32; 1" dur="5s" repeatCount="indefinite" />
+    <animate attributeName="transform" type="translate" values="0 0; 0 100; 0 0; 0 0" keyTimes="0; 0.15; 0.3; 1" dur="5s" repeatCount="indefinite" />
+  </g>
+
+  <!-- Brain (Classifying) - Phase 2 -->
+  <g class="icon-red" transform="translate(20 20) scale(2.5)" opacity="0">
+    <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/>
+    <path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/>
+    <path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/>
+    <path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/>
+    <path d="M6.002 5.125A3 3 0 0 0 6.401 6.5"/>
+    <path d="M3.477 10.896a4 4 0 0 1 .585-.396"/>
+    <path d="M19.938 10.5a4 4 0 0 1 .585.396"/>
+    <path d="M6 18a4 4 0 0 1-1.967-.516"/>
+    <path d="M19.967 17.484A4 4 0 0 1 18 18"/>
+    <animate attributeName="opacity" values="0; 0; 1; 1; 0; 0" keyTimes="0; 0.3; 0.32; 0.54; 0.56; 1" dur="5s" repeatCount="indefinite" />
+  </g>
+
+  <!-- Sparkles Top Right -->
+  <path d="M82 18 l 1 3 l 3 1 l -3 1 l -1 3 l -1 -3 l -3 -1 l 3 -1 z" fill="#f87171">
+    <animate attributeName="opacity" values="1; 0.3; 1" dur="1.5s" repeatCount="indefinite" />
+  </path>
+  <path d="M88 12 l 1 2 l 2 1 l -2 1 l -1 2 l -1 -2 l -2 -1 l 2 -1 z" fill="#f87171" opacity="0.6">
+    <animate attributeName="opacity" values="0.6; 0.1; 0.6" dur="2s" repeatCount="indefinite" />
+  </path>
+
+</svg>

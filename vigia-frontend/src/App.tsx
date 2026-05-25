@@ -38,6 +38,7 @@ import { auth, db, handleFirestoreError } from './lib/firebase';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { useTenant } from './lib/TenantContext';
+import { useAnimatedFavicon } from './lib/useAnimatedFavicon';
 
 type ViewState = 'hub' | 'extractor' | 'cheques' | 'history' | 'api' | 'settings';
 
@@ -109,6 +110,9 @@ export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isTenantDropdownOpen, setIsTenantDropdownOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+
+  // Activa el gif iconico en modo claro o modo oscuro
+  useAnimatedFavicon(theme);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -600,32 +604,34 @@ export default function App() {
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full relative z-10 px-4">
-                  
-                  {/* Lector de Comprobantes */}
+                          {/* Lector Inteligente */}
                   <motion.div
                     whileHover={{ y: -8, scale: 1.01 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => navigateTo('extractor')}
-                    className="p-8 bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-white/5 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.3)] hover:shadow-red-500/10 hover:border-red-500/50 transition-all cursor-pointer group relative overflow-hidden backdrop-blur-xl"
+                    className="p-8 bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-white/5 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.3)] hover:shadow-[0_20px_60px_rgba(220,38,38,0.15)] hover:border-red-500/50 transition-all cursor-pointer group relative overflow-hidden backdrop-blur-xl flex flex-col justify-between h-full"
                   >
-                    <div className="absolute -bottom-4 -right-4 p-4 opacity-5 group-hover:opacity-20 transition-all duration-500 group-hover:scale-125 rotate-12">
-                      <Scan className="w-48 h-48 text-red-600" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-red-500/0 via-red-500/0 to-red-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                    <div className="absolute -bottom-4 -right-4 p-4 opacity-5 group-hover:opacity-10 transition-all duration-700 group-hover:scale-[1.3] group-hover:rotate-12">
+                      <Scan className="w-56 h-56 text-red-600" />
                     </div>
-                    <div className="flex justify-between items-start mb-8">
-                       <div className="w-14 h-14 bg-red-600 text-white rounded-2xl flex items-center justify-center relative z-10 shadow-lg shadow-red-600/30 group-hover:rotate-6 transition-transform">
-                         <Scan className="w-7 h-7" />
+                    <div className="flex justify-between items-start mb-10 relative z-10">
+                       <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-red-700 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-red-600/30 group-hover:rotate-6 group-hover:scale-110 transition-all duration-500 border border-red-400 dark:border-white/10">
+                         <Scan className="w-8 h-8" />
                        </div>
-                       <span className="px-3 py-1 bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest rounded-full relative z-10 shadow-lg shadow-emerald-500/20 animate-pulse">
-                         Online
+                       <span className="px-3 py-1 bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg shadow-emerald-500/20 animate-pulse border border-emerald-400">
+                         En Linea
                        </span>
                     </div>
-                    <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-3 relative z-10 tracking-tight italic uppercase">
-                      Lector <span className="text-red-500">Inteligente</span>
-                    </h3>
-                    <p className="text-base font-medium text-slate-500 dark:text-slate-400 relative z-10 leading-snug">
-                      Procesa facturas, tickets y retenciones con visión neural. Inserción directa en tiempo real.
-                    </p>
-                    <div className="mt-8 flex items-center gap-2 text-red-600 dark:text-red-400 text-xs font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="relative z-10 flex-1">
+                      <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-4 tracking-tight italic uppercase drop-shadow-sm">
+                        Lector <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-600 to-rose-400">Inteligente</span>
+                      </h3>
+                      <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 leading-relaxed border-l-2 border-red-500/30 pl-3">
+                        Procesa facturas, tickets y retenciones con visión neural. Inserción directa en tiempo real.
+                      </p>
+                    </div>
+                    <div className="mt-8 flex items-center gap-2 text-red-600 dark:text-red-400 text-xs font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity group-hover:-translate-x-1 duration-300 relative z-10">
                       <span>Iniciar Terminal</span>
                       <ArrowLeft className="w-4 h-4 rotate-180" />
                     </div>
@@ -636,26 +642,29 @@ export default function App() {
                     whileHover={{ y: -8, scale: 1.01 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => navigateTo('cheques')}
-                    className="p-8 bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-white/5 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.3)] hover:shadow-red-500/10 hover:border-red-500/50 transition-all cursor-pointer group relative overflow-hidden backdrop-blur-xl"
+                    className="p-8 bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-white/5 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.3)] hover:shadow-[0_20px_60px_rgba(79,70,229,0.15)] hover:border-indigo-500/50 transition-all cursor-pointer group relative overflow-hidden backdrop-blur-xl flex flex-col justify-between h-full"
                   >
-                    <div className="absolute -bottom-4 -right-4 p-4 opacity-5 group-hover:opacity-20 transition-all duration-500 group-hover:scale-125 rotate-12">
-                      <CreditCard className="w-48 h-48 text-red-600" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/0 via-indigo-500/0 to-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                    <div className="absolute -bottom-4 -right-4 p-4 opacity-5 group-hover:opacity-10 transition-all duration-700 group-hover:scale-[1.3] group-hover:rotate-12">
+                      <CreditCard className="w-56 h-56 text-indigo-600" />
                     </div>
-                    <div className="flex justify-between items-start mb-8">
-                       <div className="w-14 h-14 bg-red-600 text-white rounded-2xl flex items-center justify-center relative z-10 shadow-lg shadow-red-600/30 group-hover:rotate-6 transition-transform">
-                         <CreditCard className="w-7 h-7" />
+                    <div className="flex justify-between items-start mb-10 relative z-10">
+                       <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-indigo-700 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-600/30 group-hover:-rotate-6 group-hover:scale-110 transition-all duration-500 border border-indigo-400 dark:border-white/10">
+                         <CreditCard className="w-8 h-8" />
                        </div>
-                       <span className="px-3 py-1 bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest rounded-full relative z-10 shadow-lg shadow-emerald-500/20 animate-pulse">
-                         Online
+                       <span className="px-3 py-1 bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg shadow-emerald-500/20 animate-pulse border border-emerald-400">
+                         En Linea
                        </span>
                     </div>
-                    <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-3 relative z-10 tracking-tight italic uppercase">
-                      Lector de <span className="text-red-500">Cheques</span>
-                    </h3>
-                    <p className="text-base font-medium text-slate-500 dark:text-slate-400 relative z-10 leading-snug">
-                      Clasifica cheques con IA de visión. Obtén deudas, alertas impositivas y rechazos directo del BCRA.
-                    </p>
-                    <div className="mt-8 flex items-center gap-2 text-red-600 dark:text-red-400 text-xs font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="relative z-10 flex-1">
+                      <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-4 tracking-tight italic uppercase drop-shadow-sm">
+                        Lector de <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-blue-400">Cheques</span>
+                      </h3>
+                      <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 leading-relaxed border-l-2 border-indigo-500/30 pl-3">
+                        Clasifica cheques con IA de visión. Obtén deudas, alertas impositivas y rechazos directo del BCRA.
+                      </p>
+                    </div>
+                    <div className="mt-8 flex items-center gap-2 text-indigo-600 dark:text-indigo-400 text-xs font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity group-hover:-translate-x-1 duration-300 relative z-10">
                       <span>Iniciar Terminal</span>
                       <ArrowLeft className="w-4 h-4 rotate-180" />
                     </div>
@@ -668,7 +677,7 @@ export default function App() {
                         <Link2 className="w-7 h-7" />
                       </div>
                       <span className="px-3 py-1 bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-500 text-[10px] font-black uppercase tracking-widest rounded-full border border-slate-300 dark:border-slate-700">
-                        Coming Soon
+                        Proximamente
                       </span>
                     </div>
                     <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-3 tracking-tight italic uppercase">
@@ -686,7 +695,7 @@ export default function App() {
                         <Truck className="w-7 h-7" />
                       </div>
                       <span className="px-3 py-1 bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-500 text-[10px] font-black uppercase tracking-widest rounded-full border border-slate-300 dark:border-slate-700">
-                        Coming Soon
+                        Proximamente
                       </span>
                     </div>
                     <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-3 tracking-tight italic uppercase">
@@ -697,54 +706,6 @@ export default function App() {
                     </p>
                   </div>
 
-                </div>
-
-                {/* Secondary Administration & System Configuration Tier */}
-                <div className="w-full mt-14 flex flex-col gap-4 relative z-10 px-4">
-                  <div className="flex items-center gap-4">
-                    <span className="text-[10px] uppercase font-black tracking-widest text-slate-400 dark:text-slate-500">ADMINISTRACIÓN & SOPORTE TÉCNICO VIGIA</span>
-                    <div className="h-px flex-1 bg-slate-200 dark:bg-white/5" />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
-                    {/* Configuración de Terminal */}
-                    <motion.div
-                      whileHover={{ scale: 1.01, y: -4 }}
-                      whileTap={{ scale: 0.99 }}
-                      onClick={() => navigateTo('api')}
-                      className="p-6 bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-white/5 rounded-3xl shadow-sm hover:border-red-500/30 dark:hover:border-red-550/30 cursor-pointer flex items-center justify-between group transition-all"
-                    >
-                      <div className="flex items-center gap-4 overflow-hidden">
-                        <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
-                          <Database className="w-6 h-6" />
-                        </div>
-                        <div className="truncate text-left">
-                          <h4 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Terminal & Conexión ERP</h4>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">Configurar URLs SOAP de Terraverde, test de base SQL Server y variables.</p>
-                        </div>
-                      </div>
-                      <ChevronRight className="w-5 h-5 text-slate-400 group-hover:translate-x-1.5 transition-transform shrink-0" />
-                    </motion.div>
-
-                    {/* Preferencias Globales */}
-                    <motion.div
-                      whileHover={{ scale: 1.01, y: -4 }}
-                      whileTap={{ scale: 0.99 }}
-                      onClick={() => navigateTo('settings')}
-                      className="p-6 bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-white/5 rounded-3xl shadow-sm hover:border-red-500/30 dark:hover:border-red-550/30 cursor-pointer flex items-center justify-between group transition-all"
-                    >
-                      <div className="flex items-center gap-4 overflow-hidden">
-                        <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                          <SettingsIcon className="w-6 h-6" />
-                        </div>
-                        <div className="truncate text-left">
-                          <h4 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Preferencias Globales</h4>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">Control de claves API Gemini, registros históricos de auditoría y temas.</p>
-                        </div>
-                      </div>
-                      <ChevronRight className="w-5 h-5 text-slate-400 group-hover:translate-x-1.5 transition-transform shrink-0" />
-                    </motion.div>
-                  </div>
                 </div>
               </motion.div>
             )}
@@ -760,6 +721,7 @@ export default function App() {
                   className="w-full max-w-5xl mx-auto flex flex-col items-center justify-start mt-6 md:mt-12"
                 >
                   <div className="text-center mb-12 flex flex-col items-center">
+                    
                     <h2 className="text-4xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-white mb-4 leading-tight italic uppercase">
                       Lector <span className="text-red-600">Inteligente</span>
                     </h2>
