@@ -760,15 +760,6 @@ export default function App() {
                   className="w-full max-w-5xl mx-auto flex flex-col items-center justify-start mt-6 md:mt-12"
                 >
                   <div className="text-center mb-12 flex flex-col items-center">
-                    <motion.div 
-                      initial={{ scale: 0.9, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{ delay: 0.1 }}
-                      className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-red-50 dark:bg-red-600/10 text-red-600 dark:text-red-400 text-[10px] font-black tracking-[0.2em] uppercase mb-6 border border-red-100 dark:border-red-600/20 shadow-sm"
-                    >
-                        <Sparkles className="w-3.5 h-3.5 fill-current" />
-                        Vigia Engine v3.0
-                    </motion.div>
                     <h2 className="text-4xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-white mb-4 leading-tight italic uppercase">
                       Lector <span className="text-red-600">Inteligente</span>
                     </h2>

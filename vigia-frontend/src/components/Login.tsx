@@ -1,122 +1,132 @@
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence, useMotionValue, useSpring, useTransform, Variants } from 'motion/react';
+import { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence, useMotionValue, useSpring, useTransform, Variants, useReducedMotion } from 'motion/react';
 import { FileText, ArrowRight, LogIn, Database, Truck, Scan, ShieldAlert } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { auth, db, handleFirestoreError } from '../lib/firebase';
 import { signInWithPopup, GoogleAuthProvider, User } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
-interface LoginProps {
-  onLogin: (isAdmin: boolean) => void;
-}
+// ==========================================
+// 1. CONSTANTES Y CONFIGURACIÓN ESTÁTICA
+// ==========================================
+// Mover esto fuera del componente evita que se re-asignen en memoria en cada render
+const SYSTEM_MODULES = [
+  { icon: <Database className="w-3.5 h-3.5" />, text: 'ERP SYNC' },
+  { icon: <FileText className="w-3.5 h-3.5" />, text: 'FISCAL' },
+  { icon: <Truck className="w-3.5 h-3.5" />, text: 'LOGISTICA' }
+];
 
-export function Login({ onLogin }: LoginProps) {
+const staggerContainer: Variants = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.1 } }
+};
+
+const fadeInUp: Variants = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.16, 1, 0.3, 1] } }
+};
+
+// ==========================================
+// 2. LÓGICA DE NEGOCIO (CUSTOM HOOK)
+// ==========================================
+// Abstraemos Firebase. La UI no necesita saber CÓMO se autentica, solo el resultado.
+const useNeuralAuth = (onLoginSuccess: (isAdmin: boolean) => void) => {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Optimización de Framer Motion: Uso directo de MotionValues para evitar re-renders por frame
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
-
-  // Interpolación de físicas suave y performante
-  const smoothX = useSpring(mouseX, { damping: 40, stiffness: 150, mass: 0.5 });
-  const smoothY = useSpring(mouseY, { damping: 40, stiffness: 150, mass: 0.5 });
-
-  // Transformaciones para efectos parallax
-  const bgMoveX = useTransform(smoothX, [-1, 1], [-20, 20]);
-  const bgMoveY = useTransform(smoothY, [-1, 1], [-20, 20]);
-  
-  // Spotlight
-  const spotlightX = useTransform(smoothX, [-1, 1], ['-15%', '15%']);
-  const spotlightY = useTransform(smoothY, [-1, 1], ['-15%', '15%']);
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      // Normalizado de -1 a 1 basado en el centro de la pantalla
-      mouseX.set((e.clientX / window.innerWidth - 0.5) * 2);
-      mouseY.set((e.clientY / window.innerHeight - 0.5) * 2);
-    };
-
-    // 'passive: true' mejora el rendimiento del scroll/eventos al no bloquear el hilo principal
-    window.addEventListener('mousemove', handleMouseMove, { passive: true });
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, [mouseX, mouseY]);
-
-  // Lógica delegada de verificación para un flujo más predecible
   const verifyAndCreateUser = async (user: User) => {
     const userDocRef = doc(db, 'users', user.uid);
-    let userDocSnap;
     try {
-      userDocSnap = await getDoc(userDocRef);
-    } catch (err) {
-      handleFirestoreError(err, 'get' as any, `users/${user.uid}`);
-      throw new Error('Imposible conectar con el directorio de identidades neurales.');
-    }
-
-    let isAdmin = false;
-
-    if (!userDocSnap.exists()) {
-      isAdmin = user.email === 'rivatagaston@gmail.com';
-      try {
+      const userDocSnap = await getDoc(userDocRef);
+      
+      if (!userDocSnap.exists()) {
+        // PRO TIP: En un entorno real, este email debería venir de variables de entorno (ej. import.meta.env.VITE_ADMIN_EMAIL)
+        const isAdmin = user.email === 'rivatagaston@gmail.com';
         await setDoc(userDocRef, {
           email: user.email,
           name: user.displayName,
           role: isAdmin ? 'admin' : 'operator',
           createdAt: new Date().toISOString()
         });
-      } catch (err) {
-        handleFirestoreError(err, 'write' as any, `users/${user.uid}`);
-        throw new Error('Acceso denegado durante el registro biométrico.');
+        return isAdmin;
       }
-    } else {
-      isAdmin = userDocSnap.data().role === 'admin';
+      
+      return userDocSnap.data().role === 'admin';
+    } catch (err) {
+      handleFirestoreError(err, 'get' as any, `users/${user.uid}`);
+      throw new Error('Imposible conectar con el directorio de identidades neurales.');
     }
-
-    return isAdmin;
   };
 
-  const handleGoogleLogin = async () => {
+  // useCallback previene re-renders innecesarios en componentes hijos si los hubiera
+  const handleLogin = useCallback(async () => {
     setIsLoggingIn(true);
     setError(null);
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
       const isAdmin = await verifyAndCreateUser(result.user);
-      onLogin(isAdmin);
+      onLoginSuccess(isAdmin);
     } catch (err: any) {
-      console.error(err);
+      console.error('[Auth Error]:', err);
       setError(err.message || 'La sincronización de seguridad falló u operación cancelada.');
     } finally {
       setIsLoggingIn(false);
     }
-  };
+  }, [onLoginSuccess]);
 
-  // TIPADO EXPLÍCITO CORREGIDO AQUÍ PARA EVITAR EL ERROR DE INDEX SIGNATURE
-  const staggerContainer: Variants = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: { staggerChildren: 0.1 }
-    }
-  };
+  return { handleLogin, isLoggingIn, error };
+};
 
-  // USANDO LA SINTAXIS ADMITIDA POR MOTION/REACT PARA EASING PERSONALIZADO
-  const fadeInUp: Variants = {
-    hidden: { opacity: 0, y: 20 },
-    show: { 
-      opacity: 1, 
-      y: 0, 
-      transition: { 
-        duration: 0.7, 
-        ease: [0.16, 1, 0.3, 1] // Ahora TypeScript sabe que pertenece a la interfaz Variants legítima
-      } 
-    }
-  };
+// ==========================================
+// 3. COMPONENTE DE VISTA (PRESENTACIONAL)
+// ==========================================
+interface LoginProps {
+  onLogin: (isAdmin: boolean) => void;
+}
+
+export function Login({ onLogin }: LoginProps) {
+  // Consumimos la lógica de negocio limpia
+  const { handleLogin, isLoggingIn, error } = useNeuralAuth(onLogin);
+
+  // Optimizaciones de Motion y Accesibilidad
+  const prefersReducedMotion = useReducedMotion();
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+
+  const smoothX = useSpring(mouseX, { damping: 40, stiffness: 150, mass: 0.5 });
+  const smoothY = useSpring(mouseY, { damping: 40, stiffness: 150, mass: 0.5 });
+
+  const parallaxRange = prefersReducedMotion ? [0, 0] : [-20, 20];
+  const spotlightRange = prefersReducedMotion ? ['0%', '0%'] : ['-15%', '15%'];
+
+  const bgMoveX = useTransform(smoothX, [-1, 1], parallaxRange);
+  const bgMoveY = useTransform(smoothY, [-1, 1], parallaxRange);
+  const spotlightX = useTransform(smoothX, [-1, 1], spotlightRange);
+  const spotlightY = useTransform(smoothY, [-1, 1], spotlightRange);
+
+  useEffect(() => {
+    if (prefersReducedMotion) return;
+
+    let animationFrameId: number;
+    const handleMouseMove = (e: MouseEvent) => {
+      animationFrameId = requestAnimationFrame(() => {
+        mouseX.set((e.clientX / window.innerWidth - 0.5) * 2);
+        mouseY.set((e.clientY / window.innerHeight - 0.5) * 2);
+      });
+    };
+
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [mouseX, mouseY, prefersReducedMotion]);
 
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-[#080808] font-sans text-slate-900 dark:text-white transition-colors duration-500 overflow-hidden relative flex flex-col items-center justify-center selection:bg-red-500/30">
       
-      {/* Background Neural Grid - Optimizado con MotionValues nativos */}
+      {/* Background Neural Grid */}
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
         <motion.div 
           className="absolute inset-0 opacity-[0.25] dark:opacity-[0.1]"
@@ -130,63 +140,48 @@ export function Login({ onLogin }: LoginProps) {
           }}
         />
 
-        {/* Global Glow */}
         <motion.div 
-          className="absolute top-1/2 left-1/2 w-[800px] h-[800px] -translate-x-1/2 -translate-y-1/2 bg-red-600/[0.03] dark:bg-red-500/[0.05] rounded-full blur-[120px]"
+          className="absolute top-1/2 left-1/2 w-[800px] h-[800px] -translate-x-1/2 -translate-y-1/2 bg-red-600/[0.03] dark:bg-red-500/[0.05] rounded-full blur-[120px] will-change-transform"
           style={{ x: spotlightX, y: spotlightY }}
         />
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] mix-blend-overlay pointer-events-none"></div>
       </div>
 
-      <div className="relative z-10 w-full max-w-7xl px-6 sm:px-8 py-10 min-h-screen flex items-center">
+      <div className="relative z-10 w-full max-w-7xl px-6 sm:px-8 py-10 min-h-screen flex items-center xl:scale-[1.15] 2xl:scale-[1.25] transform origin-center transition-transform duration-500">
         <motion.div 
           variants={staggerContainer} 
           initial="hidden" 
           animate="show" 
           className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 w-full items-center"
         >
-          {/* Columna Izquierda: Identidad y Contexto */}
+          {/* COLUMNA IZQUIERDA: Contexto Visual */}
           <motion.section variants={fadeInUp} className="flex flex-col items-start pt-10 lg:pt-0">
-            {/* Etiqueta de Sistema */}
-            <div className="inline-flex items-center gap-3 px-4 py-2 bg-white/60 dark:bg-white/[0.03] backdrop-blur-xl border border-slate-200/50 dark:border-white/[0.08] rounded-full shadow-sm mb-10 md:mb-14">
-              <div className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </div>
-              <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 tracking-widest uppercase">
-                VIGIA Módulo Neural
-              </span>
-            </div>
+     
 
             <div className="flex flex-col md:flex-row items-center md:items-center gap-8 lg:gap-12 mb-10 w-full relative">
-              {/* Portal de Fusión Neural */}
+              
+              {/* Portal de Fusión Neural (Zona lista para WebGL/Blender) */}
               <div className="relative group perspective w-48 h-48 sm:w-56 sm:h-56 lg:w-52 lg:h-52 shrink-0 flex items-center justify-center">
                 <div className="absolute inset-0 bg-red-600/20 dark:bg-red-500/20 rounded-full blur-[40px] opacity-60 group-hover:opacity-100 group-hover:scale-110 transition-all duration-1000"></div>
-                
                 <div className="absolute -inset-4 rounded-full border border-red-500/10 dark:border-red-500/20 scale-[1.0] group-hover:scale-[1.1] animate-[spin_10s_linear_infinite] transition-transform duration-1000"></div>
                 <div className="absolute -inset-8 rounded-full border border-dashed border-red-600/10 dark:border-red-400/20 scale-[1.0] group-hover:scale-[1.15] animate-[spin_15s_linear_infinite_reverse] transition-transform duration-1000"></div>
                 
-                <div className="absolute inset-0 rounded-[2.5rem] overflow-hidden shadow-[0_0_40px_rgba(220,38,38,0.25)] dark:shadow-[0_0_60px_rgba(220,38,38,0.2)] border-2 border-red-500/30 dark:border-white/10 z-10 bg-black transform transition-all duration-700 group-hover:scale-[1.03]">
+                <div className="absolute inset-0 rounded-[2.5rem] overflow-hidden shadow-[0_0_40px_rgba(220,38,38,0.25)] dark:shadow-[0_0_60px_rgba(220,38,38,0.2)] border-2 border-red-500/30 dark:border-white/10 z-10 bg-black transform transition-all duration-700 group-hover:scale-[1.33]">
                   <div className="absolute inset-0 bg-red-900/10 dark:bg-black/20 mix-blend-overlay z-10 pointer-events-none"></div>
                   
                   <video 
-                    autoPlay 
-                    loop 
-                    muted 
-                    playsInline 
+                    autoPlay loop muted playsInline 
                     className="w-full h-full object-cover scale-[1.05] brightness-110 contrast-125 dark:brightness-100 dark:contrast-100 transition-opacity duration-500"
                     src="/rojosoft-ai.mp4" 
                     poster="https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?q=80&w=400&fm=jpg"
                   />
                   
                   <div className="absolute inset-0 bg-gradient-to-tr from-black/40 via-transparent to-red-500/10 z-20 pointer-events-none"></div>
-                  
                   <div className="absolute inset-x-0 h-[2px] z-30 pointer-events-none" style={{
                     background: 'linear-gradient(90deg, transparent, rgba(248,113,113,0.9), transparent)',
                     boxShadow: '0 0 20px rgba(248,113,113,1)',
                     animation: 'scan 2.5s cubic-bezier(0.4, 0, 0.2, 1) infinite'
                   }}></div>
-                  
                   <div className="absolute inset-0 ring-1 ring-inset ring-white/30 dark:ring-white/10 rounded-[2.5rem] pointer-events-none z-30"></div>
                 </div>
 
@@ -196,36 +191,22 @@ export function Login({ onLogin }: LoginProps) {
               </div>
 
               <div className="flex flex-col items-center md:items-start text-center md:text-left z-10 relative">
-                <h1 className="text-4xl sm:text-5xl lg:text-5xl xl:text-6xl font-bold tracking-tight text-slate-900 dark:text-slate-100 mb-2 leading-[0.9]">
+                <h1 className="text-4xl sm:text-5xl lg:text-5xl xl:text-7xl font-bold tracking-tight text-slate-900 dark:text-slate-100 mb-2 leading-[0.9]">
                   Integraciones <br/>
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-600 to-rose-500 dark:from-red-500 dark:to-rose-400 font-extrabold tracking-tighter drop-shadow-sm">ROJOSOFT</span>
                 </h1>
-                
-                <div className="mt-3 flex flex-wrap justify-center md:justify-start gap-2">
-                  <div className="bg-white/80 dark:bg-white/[0.05] border border-slate-200/80 dark:border-white/10 px-3 py-1.5 rounded-[0.5rem] inline-flex items-center gap-2 shadow-sm backdrop-blur-md">
-                     <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                     </span>
-                     <span className="text-slate-700 dark:text-slate-300 text-[10px] font-bold tracking-widest uppercase">Conexión IA Activa</span>
-                  </div>
-                </div>
               </div>
             </div>
             
             <div className="relative max-w-lg mb-10">
               <p className="text-slate-600 dark:text-slate-300/90 text-lg md:text-xl font-medium leading-relaxed border-l-[3px] border-red-500 pl-6 dark:border-red-500/60 text-left">
-                Su central de automatización con <span className="text-slate-900 dark:text-white font-bold">inteligencia artificial</span> está inicializada.
+                Su central de automatización con <span className="text-slate-900 dark:text-white font-bold">IA</span>
                 <span className="text-slate-400 dark:text-slate-500 font-semibold uppercase text-xs tracking-widest block mt-3">Lectura • Conciliación • Inserción</span>
               </p>
             </div>
 
             <div className="flex flex-wrap gap-2">
-              {[
-                { icon: <Database className="w-3.5 h-3.5" />, text: 'ERP SYNC' },
-                { icon: <FileText className="w-3.5 h-3.5" />, text: 'FISCAL' },
-                { icon: <Truck className="w-3.5 h-3.5" />, text: 'LOGISTICA' }
-              ].map((pill, i) => (
+              {SYSTEM_MODULES.map((pill, i) => (
                 <div 
                   key={i} 
                   className="px-3.5 py-2 bg-white/50 dark:bg-white/[0.04] text-slate-600 dark:text-slate-400 text-xs font-medium uppercase tracking-wider rounded-lg border border-slate-200/60 dark:border-white/[0.06] flex items-center gap-2 backdrop-blur-md transition-colors hover:bg-white dark:hover:bg-white/[0.08]"
@@ -237,11 +218,8 @@ export function Login({ onLogin }: LoginProps) {
             </div>
           </motion.section>
 
-          {/* Columna Derecha: Autenticación */}
-          <motion.section 
-            variants={fadeInUp}
-            className="flex flex-col items-center lg:items-end justify-center pb-10 lg:pb-0"
-          >
+          {/* COLUMNA DERECHA: Autenticación */}
+          <motion.section variants={fadeInUp} className="flex flex-col items-center lg:items-end justify-center pb-10 lg:pb-0">
             <div className="w-full max-w-md p-[1px] bg-gradient-to-b from-slate-200/80 to-slate-100 dark:from-white/[0.08] dark:to-transparent rounded-[2.5rem] shadow-sm">
               <div className="bg-white/80 dark:bg-[#0A0A0A]/80 backdrop-blur-2xl rounded-[2.4rem] p-8 md:p-12 border border-white/50 dark:border-white/[0.02] shadow-[0_8px_40px_-12px_rgba(0,0,0,0.1)] dark:shadow-[0_8px_40px_-12px_rgba(0,0,0,0.4)] relative overflow-hidden group">
                 
@@ -274,7 +252,7 @@ export function Login({ onLogin }: LoginProps) {
                   </AnimatePresence>
                   
                   <button 
-                    onClick={handleGoogleLogin}
+                    onClick={handleLogin}
                     disabled={isLoggingIn}
                     aria-label="Ingresar con Google"
                     className={cn(
