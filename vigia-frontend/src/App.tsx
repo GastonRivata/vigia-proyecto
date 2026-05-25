@@ -221,13 +221,13 @@ export default function App() {
           className: 'font-sans tracking-tight',
         }} 
       />      {/* Floating Top Nav (Desktop Command Center, Horizontal Nav) */}
-      <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] hidden md:flex items-center justify-between bg-white/85 dark:bg-slate-950/80 backdrop-blur-2xl border border-slate-200/50 dark:border-white/10 p-2 rounded-[2rem] shadow-2xl shadow-slate-100 dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] w-[calc(100%-3rem)] max-w-6xl transition-all duration-300">
+      <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] hidden md:flex items-center justify-between bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl border border-white/40 dark:border-white/10 p-1.5 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.4)] w-[calc(100%-3rem)] max-w-7xl transition-all duration-500">
         
         {/* Left: Brand Logo & Horizontal Nav Links */}
-        <div className="flex items-center gap-4 pl-2">
+        <div className="flex items-center gap-3 pl-2">
           <button 
             onClick={() => navigateTo('hub')} 
-            className="flex items-center gap-2.5 hover:bg-slate-100 dark:hover:bg-white/5 py-1.5 px-3 rounded-2xl transition-all outline-none"
+            className="flex items-center gap-2.5 hover:bg-slate-100 dark:hover:bg-white/5 py-1.5 px-3 rounded-full transition-all outline-none"
           >
             <VigiaLogo size="sm" animated={false} />
             <span className="font-extrabold text-sm text-slate-900 dark:text-white tracking-tight italic uppercase">
@@ -235,77 +235,60 @@ export default function App() {
             </span>
           </button>
 
-          <div className="h-6 w-px bg-slate-200 dark:bg-white/10" />
+          <div className="h-6 w-px bg-slate-200 dark:bg-white/10 mx-1" />
 
           {/* Unified Horizontal Nav Navbar */}
-          <nav className="flex items-center gap-1.5 bg-slate-50 dark:bg-white/5 p-1 rounded-2xl border border-slate-200/30 dark:border-white/5">
-            <button 
-              onClick={() => navigateTo('hub')}
-              className={cn(
-                "px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 outline-none",
-                currentView === 'hub' ? "bg-white dark:bg-slate-900 text-red-650 shadow-sm border border-slate-200/50 dark:border-white/5" : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-              )}
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              <span>Hub</span>
-            </button>
-            <button 
-              onClick={() => navigateTo('extractor')}
-              className={cn(
-                "px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 outline-none",
-                ['extractor', 'history'].includes(currentView) ? "bg-white dark:bg-slate-900 text-red-650 shadow-sm border border-slate-200/50 dark:border-white/5" : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-              )}
-            >
-              <Scan className="w-3.5 h-3.5" />
-              <span>Lector</span>
-            </button>
-            <button 
-              onClick={() => navigateTo('cheques')}
-              className={cn(
-                "px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 outline-none",
-                currentView === 'cheques' ? "bg-white dark:bg-slate-900 text-red-650 shadow-sm border border-slate-200/50 dark:border-white/5" : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-              )}
-            >
-              <CreditCard className="w-3.5 h-3.5" />
-              <span>Cheques</span>
-            </button>
-            <button 
-              onClick={() => navigateTo('api')}
-              className={cn(
-                "px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 outline-none",
-                currentView === 'api' ? "bg-white dark:bg-slate-900 text-red-650 shadow-sm border border-slate-200/50 dark:border-white/5" : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-              )}
-            >
-              <Database className="w-3.5 h-3.5 animate-pulse" />
-              <span>Conexión ERP</span>
-            </button>
-            <button 
-              onClick={() => navigateTo('settings')}
-              className={cn(
-                "px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 outline-none",
-                currentView === 'settings' ? "bg-white dark:bg-slate-900 text-red-650 shadow-sm border border-slate-200/50 dark:border-white/5" : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-              )}
-            >
-              <SettingsIcon className="w-3.5 h-3.5" />
-              <span>Preferencias</span>
-            </button>
+          <nav className="flex items-center gap-1">
+            {[
+              { id: 'hub', label: 'Hub', icon: LayoutGrid },
+              { id: 'extractor', label: 'Lector', icon: Scan },
+              { id: 'cheques', label: 'Cheques', icon: CreditCard },
+              { id: 'api', label: 'Conexión ERP', icon: Database },
+              { id: 'settings', label: 'Preferencias', icon: SettingsIcon }
+            ].map((item) => {
+              const active = item.id === 'extractor' 
+                ? ['extractor', 'history'].includes(currentView)
+                : currentView === item.id;
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => navigateTo(item.id as ViewState)}
+                  className={cn(
+                    "relative px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-colors flex items-center gap-2 outline-none group",
+                    active ? "text-red-650" : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                  )}
+                >
+                  {active && (
+                    <motion.div
+                      layoutId="desktop-active-nav-pill"
+                      className="absolute inset-0 bg-white dark:bg-white/10 rounded-full shadow-[0_2px_10px_rgba(0,0,0,0.06)] dark:shadow-none border border-slate-200/40 dark:border-white/5"
+                      initial={false}
+                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                    />
+                  )}
+                  <Icon className={cn("w-3.5 h-3.5 relative z-10 transition-transform duration-300 group-hover:scale-110", active && "animate-pulse delay-75")} />
+                  <span className="relative z-10">{item.label}</span>
+                </button>
+              );
+            })}
           </nav>
         </div>
 
         {/* Center-Right: Connected Client Active Status Dropdown */}
-        <div className="flex items-center gap-3 pr-1">
-          <div className="relative flex items-center gap-3 px-4 py-1.5 rounded-2xl border border-slate-200/60 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02] backdrop-blur-md">
+        <div className="flex items-center gap-3 pr-2">
+          <div className="relative flex items-center gap-3 px-4 py-1.5 rounded-full border border-slate-200/60 dark:border-white/10 bg-white/50 dark:bg-white/[0.04] backdrop-blur-md shadow-sm">
             <div className="relative size-2 flex items-center justify-center shrink-0">
-              <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-75" />
+              <span className="absolute inset-0 rounded-full bg-emerald-500 animate-[ping_2.5s_cubic-bezier(0,0,0.2,1)_infinite] opacity-75" />
               <span className="relative rounded-full size-1.5 bg-emerald-500" />
             </div>
 
-            <div className="flex items-center gap-1.5 text-[10px] font-black tracking-widest uppercase text-slate-400 dark:text-slate-500">
+            <div className="flex items-center gap-1.5 text-[10px] font-black tracking-[0.2em] uppercase text-slate-400 dark:text-slate-500">
               <span>ERP LINK:</span>
             </div>
 
             {/* Interactive dropdown trigger */}
-            <div className="relative">
+            <div className="relative border-l border-slate-200/60 dark:border-white/10 pl-3">
               <button
                 onClick={() => {
                   if (tenants.length > 1) {
@@ -314,7 +297,7 @@ export default function App() {
                   }
                 }}
                 className={cn(
-                  "flex items-center gap-1 text-xs font-bold text-slate-800 dark:text-slate-200 select-none outline-none",
+                  "flex items-center gap-1.5 text-[11px] font-extrabold text-slate-800 dark:text-slate-200 select-none outline-none tracking-wide",
                   tenants.length > 1 && "hover:text-red-600 dark:hover:text-red-400 transition-colors cursor-pointer"
                 )}
               >
@@ -337,7 +320,7 @@ export default function App() {
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 15, scale: 0.95 }}
                       transition={{ duration: 0.15 }}
-                      className="absolute left-1/2 -translate-x-1/2 mt-3 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl p-2.5 z-50 backdrop-blur-2xl"
+                      className="absolute right-0 mt-4 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl p-2.5 z-50 backdrop-blur-2xl"
                     >
                       <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 p-2 border-b border-slate-100 dark:border-white/5 mb-1.5 text-center">
                         Seleccionar Base ERP
@@ -360,7 +343,7 @@ export default function App() {
                             className={cn(
                               "w-full text-left p-2.5 text-xs rounded-xl font-extrabold transition-all flex items-center justify-between",
                               activeTenant?.id === t.id 
-                                ? "bg-red-500/10 text-red-600 dark:bg-white/10 dark:text-white" 
+                                ? "bg-red-500/10 text-red-600 dark:bg-emerald-500/10 dark:text-emerald-400" 
                                 : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-slate-200"
                             )}
                           >
@@ -379,13 +362,13 @@ export default function App() {
               </AnimatePresence>
             </div>
 
-            <div className="hidden lg:flex items-center gap-1 px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-[8px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 rounded-md">
+            <div className="hidden lg:flex items-center gap-1 px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-[8px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 rounded-md ml-1">
               <Cpu className="w-2.5 h-2.5 shrink-0" />
               <span>SOAP LINK</span>
             </div>
           </div>
 
-          <button onClick={toggleTheme} className="p-2 text-slate-400 hover:text-slate-950 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full transition-colors shrink-0">
+          <button onClick={toggleTheme} className="p-2.5 text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full transition-colors shrink-0">
             {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
           </button>
 
@@ -400,7 +383,7 @@ export default function App() {
               }}
               className="flex items-center gap-1.5 focus:outline-none outline-none"
             >
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-red-650 via-rose-500 to-indigo-650 text-white flex items-center justify-center font-black text-xs shadow-md border border-slate-200 dark:border-white/10 shrink-0 overflow-hidden relative group hover:scale-[1.03] transition-all duration-300">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-red-650 via-rose-500 to-indigo-650 text-white flex items-center justify-center font-black text-xs shadow-md border border-slate-200 dark:border-white/10 shrink-0 overflow-hidden relative group hover:scale-[1.05] transition-all duration-300 ring-2 ring-transparent hover:ring-red-500/30">
                 {user.photoURL ? (
                   <img src={user.photoURL} alt="" className="size-full object-cover" />
                 ) : (
@@ -476,18 +459,18 @@ export default function App() {
       <div className="flex-1 flex flex-col min-h-screen relative overflow-hidden transition-colors duration-300 pt-0 md:pt-28">
         
         {/* Mobile Header */}
-        <header className="md:hidden h-16 bg-white dark:bg-slate-950/80 backdrop-blur-xl border-b border-slate-200 dark:border-white/5 px-4 flex items-center justify-between sticky top-0 z-[100] transition-colors duration-300 shadow-sm">
-           <div className="flex items-center gap-3">
+        <header className="md:hidden h-16 bg-white/80 dark:bg-slate-950/80 backdrop-blur-2xl border-b border-slate-200/50 dark:border-white/5 px-4 flex items-center justify-between sticky top-0 z-[100] transition-colors duration-300 shadow-sm">
+           <div className="flex items-center gap-2.5">
             <VigiaLogo size="sm" animated={false} />
-            <h1 className="text-xl font-semibold text-slate-900 dark:text-white tracking-tight">
-              Vig<span className="text-red-500 font-bold">ia</span>
+            <h1 className="text-lg font-extrabold text-slate-900 dark:text-white tracking-tight italic uppercase">
+              Vig<span className="text-red-650">ia</span>
             </h1>
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={toggleTheme} className="p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg transition-colors">
+          <div className="flex items-center gap-1">
+            <button onClick={toggleTheme} className="p-2.5 text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full transition-colors">
               {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
             </button>
-            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg transition-colors">
+            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2.5 text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full transition-colors">
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
           </div>

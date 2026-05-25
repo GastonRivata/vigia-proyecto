@@ -8,6 +8,7 @@ import {
   FileText,
   Zap
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { useTenant } from '../lib/TenantContext';
 
 export function BillingDashboard() {
@@ -18,6 +19,30 @@ export function BillingDashboard() {
   const currentMonthDocs = activeTenant.usage?.currentMonthExtractions || 0;
   const rate = activeTenant.billing?.ratePerDocument || 0.15;
   const totalCost = currentMonthDocs * rate;
+
+  const handleDownloadReport = () => {
+    const reportData = [];
+    
+    // Generar 15 reportes simulados para el último mes
+    const now = new Date();
+    for (let i = 1; i <= 15; i++) {
+        const date = new Date(now);
+        date.setDate(date.getDate() - (i * 2));
+        reportData.push({
+            "Fecha Lote": date.toLocaleDateString(),
+            "Lote ID": `EXT-NEURAL-${1000 + i * 84}`,
+            "Documentos Procesados": Math.floor(Math.random() * 20) + 1,
+            "Costo Unitario (USD)": `$${rate}`,
+            "Total Consumido (USD)": `$${(Math.floor(Math.random() * 20) + 1) * rate}`
+        });
+    }
+
+    const ws = XLSX.utils.json_to_sheet(reportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Consumo_Mayo_2026");
+    
+    XLSX.writeFile(wb, `Reporte_Consumo_${activeTenant.name}_Mayo2026.xlsx`);
+  };
 
   return (
     <div className="space-y-10 max-w-5xl mx-auto py-8">
@@ -96,33 +121,40 @@ export function BillingDashboard() {
             <h4 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white flex items-center gap-3">
                <Activity className="w-4 h-4 text-red-500" /> Detalle de Consumo Reciente
             </h4>
-            <button className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-red-500 transition-colors flex items-center gap-2">
-               <Download className="w-3.5 h-3.5" /> Descargar Reporte
+            <button 
+                onClick={handleDownloadReport}
+                className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-red-500 transition-colors flex items-center gap-2 outline-none"
+            >
+               <Download className="w-3.5 h-3.5" /> Descargar Excel
             </button>
          </div>
          
          <div className="space-y-4">
             {[1, 2, 3].map(i => (
-              <div key={i} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-transparent hover:border-red-500/20 transition-all cursor-default">
-                 <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-400">
+              <div key={i} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-transparent hover:border-red-500/20 transition-all cursor-default relative overflow-hidden group">
+                 <div className="absolute inset-0 bg-gradient-to-r from-red-500/0 via-red-500/0 to-red-500/5 translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-700" />
+                 <div className="flex items-center gap-4 relative z-10">
+                    <div className="w-10 h-10 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl flex items-center justify-center text-slate-400 group-hover:scale-110 group-hover:text-red-500 transition-all">
                        <FileText className="w-5 h-5" />
                     </div>
                     <div>
                        <p className="text-sm font-bold text-slate-900 dark:text-white">Extracción Neural Lote #{84 * i}</p>
-                       <p className="text-[10px] font-bold text-slate-500 uppercase">Procesado hace {i} días</p>
+                       <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Procesado hace {i} días</p>
                     </div>
                  </div>
-                 <div className="text-right">
-                    <p className="text-sm font-black text-slate-900 dark:text-white italic uppercase">+$0.{15 * i}</p>
+                 <div className="text-right relative z-10">
+                    <p className="text-sm font-black text-slate-900 dark:text-white italic uppercase group-hover:text-red-500 transition-colors">+$0.{15 * i}</p>
                  </div>
               </div>
             ))}
          </div>
          
-         <div className="mt-8 p-6 bg-red-50/50 dark:bg-red-500/5 rounded-3xl border border-red-100 dark:border-red-500/20 flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-4">
-               <div className="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center text-white animate-pulse">
+         <div className="mt-8 p-6 bg-gradient-to-r from-red-50/50 to-rose-50/50 dark:from-red-500/5 dark:to-rose-500/5 rounded-3xl border border-red-100 dark:border-red-500/20 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+            <div className="absolute right-0 top-0 opacity-10 blur-2xl">
+               <div className="w-64 h-64 bg-red-500 rounded-full" />
+            </div>
+            <div className="flex items-center gap-4 relative z-10">
+               <div className="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center text-white animate-pulse shadow-lg shadow-red-600/30">
                   <Zap className="w-6 h-6" />
                </div>
                <div>
@@ -130,7 +162,7 @@ export function BillingDashboard() {
                   <p className="text-xs text-slate-500 font-medium">Su corte de ciclo es el 30 de Mayo.</p>
                </div>
             </div>
-            <button className="px-6 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-transform shadow-lg">
+            <button className="relative z-10 px-6 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 hover:shadow-xl transition-all outline-none">
                Configurar Pago Automático
             </button>
          </div>
