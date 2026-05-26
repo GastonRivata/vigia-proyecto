@@ -145,20 +145,26 @@ async function startServer() {
                cuentaCliente = clientResult.recordset[0]?.Cuenta;
             }
 
-            if (cuentaCliente) {
+             if (cuentaCliente) {
                matchReq.input('CuentaCliente', sql.VarChar, cuentaCliente);
                matchReq.input('GravadoIA', sql.Decimal(18, 2), gravadoIA);
                
+               const isRemito = !!facturaData.cabecera?.referencia_remito;
+               // El ERP puede tener REMEF, FCOM, etc. Asumimos REMEF o REMITO según el estandar de Rojas.
+               // El usuario dijo "hacer match con el Remito". Probaremos 'REMITO' primero, si falla podemos usar el comodín, o el codigo REMEF que habilitamos arriba.
+               const targetComprobante = isRemito ? 'REMEF' : 'ORDCOM';
+               matchReq.input('Comprobante', sql.VarChar, targetComprobante);
+
                const ocResult = await matchReq.query(`
-                 SELECT IDTabla FROM Factura WHERE Comprobante = 'ORDCOM' AND Cliente = @CuentaCliente AND Estado = 'FI' AND ABS(ImporteGravado - @GravadoIA) <= 1.00
+                 SELECT IDTabla FROM Factura WHERE Comprobante = @Comprobante AND Cliente = @CuentaCliente AND Estado = 'FI' AND ABS(ImporteGravado - @GravadoIA) <= 1.00
                `);
 
                if (ocResult.recordset.length > 0) {
                  matchedOcId = ocResult.recordset[0].IDTabla;
-                 ocVinculada = `ORDCOM-${matchedOcId}`;
+                 ocVinculada = `${targetComprobante}-${matchedOcId}`;
                  rojosoftConfig.facturaAfe = matchedOcId;
                }
-            }
+             }
           } catch (me) { console.warn("Match error", me); }
         } catch (err) {
           console.warn("SQL Matching skip", err);
@@ -246,10 +252,14 @@ async function startServer() {
             hasSoapFault = true;
             const match = soapResponseText.match(/<faultstring.*?>([\s\S]*?)<\/faultstring.*?>/i) || soapResponseText.match(/<[^>]*:?faultstring.*?>([\s\S]*?)<\/[^>]*:?faultstring.*?>/i);
             soapFaultDetails = match ? match[1].trim() : "SOAP Fault devuelto por el servidor ERP";
-          } else if (/<Result>Error<\/Result>/i.test(soapResponseText) || /<Errors>/i.test(soapResponseText)) {
+          } else if (/<Result>Error<\/Result>/i.test(soapResponseText) || /<Result>False<\/Result>/i.test(soapResponseText) || /<Errors>/i.test(soapResponseText)) {
             hasSoapFault = true;
             const match = soapResponseText.match(/<Errors>([\s\S]*?)<\/Errors>/i);
             soapFaultDetails = match ? match[1].replace(/<[^>]*>?/gm, '').trim() : "Error detectado en la respuesta XML del ERP";
+          } else if (/<InsertarResult>[\s\S]*?(error|excepci|fall|invalid|rechaz)[\s\S]*?<\/InsertarResult>/i.test(soapResponseText)) {
+            hasSoapFault = true;
+            const match = soapResponseText.match(/<InsertarResult>([\s\S]*?)<\/InsertarResult>/i);
+            soapFaultDetails = match ? match[1].replace(/<[^>]*>?/gm, '').trim() : "Error reportado en InsertarResult";
           } else if (wsResponse.status >= 400 && wsResponse.status !== 500) {
             // Un error general HTTP desde el ERP
             hasSoapFault = true;
@@ -280,6 +290,14 @@ async function startServer() {
         }
       } else {
         // Fallback offline directo por falta de host
+        if (orgId && orgId !== 'demo' && orgId !== 'simulador') {
+          return res.status(400).json({
+            error: `Falta configurar el Host ERP`,
+            details: `No se ha configurado un Host o URL para el servidor SOAP ERP en las preferencias de este cliente. Ve a "Conexión de Terminal" para configurarlo.`,
+            sentXml: soapXML
+          });
+        }
+        
         return res.json({
           success: true,
           message: "Comprobante integrado [Simulación en la Nube]",
@@ -304,17 +322,18 @@ async function startServer() {
       if (pool) {
           try {
              // Retrieve the matched OC again simply since it was outside scope, or we can parse from ocVinculada
-             const matchedOcId = ocVinculada.startsWith("ORDCOM-") ? ocVinculada.replace("ORDCOM-", "") : null;
+             const matchedOcId = ocVinculada !== "Ninguna" ? ocVinculada.split("-")[1] : null;
              
              const request = new sql.Request(pool);
              request.input('Tipo', sql.VarChar, facturaData.cabecera?.tipo || '');
              request.input('Numero', sql.VarChar, facturaData.cabecera?.numero || '');
              request.input('CuitEmisor', sql.VarChar, facturaData.cabecera?.cuit_emisor || '');
              request.input('Total', sql.Decimal(18, 2), facturaData.totales?.total || 0);
+             request.input('CotizacionMoneda', sql.Decimal(18, 6), rojosoftConfig.cotizacion || 1);
 
              const result = await request.query(`
-               INSERT INTO dbo.Factura (TipoComprobante, Numero, CuitEmisor, Total, OCVinculada)
-               OUTPUT INSERTED.IdTabla VALUES (@Tipo, @Numero, @CuitEmisor, @Total, '${matchedOcId || ''}')
+               INSERT INTO dbo.Factura (TipoComprobante, Numero, CuitEmisor, Total, OCVinculada, CotizacionMoneda)
+               OUTPUT INSERTED.IdTabla VALUES (@Tipo, @Numero, @CuitEmisor, @Total, '${matchedOcId || ''}', @CotizacionMoneda)
              `);
              cabeceraId = result.recordset[0].IdTabla;
           } catch(err) {
@@ -501,17 +520,44 @@ async function startServer() {
       const compResult = await pool.request().query(`
         SELECT Codigo, Descripcion 
         FROM Comprobante 
-        WHERE Codigo IN ('REMEF','FCOM','RTB','RTG','RTI','FCOMS')
+        WHERE Codigo IN ('REMEF','FCOM','RTB','RTG','RTI')
       `);
+
+      let valorMoneda = 1;
+      try {
+         const monResult = await pool.request().query(`SELECT TOP 1 valormoneda FROM MONEDAVALOR ORDER BY fechavig DESC`);
+         if (monResult.recordset.length > 0) valorMoneda = monResult.recordset[0].valormoneda;
+      } catch(e) {}
 
       res.json({
         centroCostos: ccResult.recordset.map(r => ({ codigo: r.Codigo, descripcion: r.Descripcion })),
-        comprobantes: compResult.recordset.map(r => ({ codigo: r.Codigo, descripcion: r.Descripcion }))
+        comprobantes: compResult.recordset.map(r => ({ codigo: r.Codigo, descripcion: r.Descripcion })),
+        valorMoneda
       });
       
     } catch (error: any) {
       console.error("[VIGIA] Error obteniendo maestros:", error);
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/vistas/plancuentas", async (req, res) => {
+    try {
+      const { orgId, sqlConfig, q } = req.query;
+      let parsedConfig = undefined;
+      if (sqlConfig && typeof sqlConfig === 'string') {
+        try { parsedConfig = JSON.parse(sqlConfig); } catch(e){}
+      }
+      
+      const pool = await getOrgSqlPool(orgId as string, parsedConfig);
+      if (!pool) return res.status(503).json({ error: "No DB" });
+
+      const request = new sql.Request(pool);
+      request.input('Term', sql.VarChar, `%${q || ''}%`);
+      const ptResult = await request.query(`SELECT TOP 50 Descripcion, Cuenta FROM PLANCUENTA WHERE Descripcion LIKE @Term`);
+      res.json(ptResult.recordset);
+    } catch (e: any) {
+       res.status(500).json({ error: e.message });
     }
   });
 
@@ -802,7 +848,12 @@ async function startServer() {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+      const indexPath = path.join(distPath, 'index.html');
+      if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+      } else {
+        res.send('✅ Backend de VIGIA funcionando correctamente. (Frontend no encontrado en /dist)');
+      }
     });
   }
 
