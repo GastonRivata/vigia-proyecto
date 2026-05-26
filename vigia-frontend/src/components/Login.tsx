@@ -23,7 +23,7 @@ const staggerContainer: Variants = {
 
 const fadeInUp: Variants = {
   hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.16, 1, 0.3, 1] } }
+  show: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.16, 1, 0.3, 1] as any } }
 };
 
 // ==========================================
@@ -40,18 +40,19 @@ const useNeuralAuth = (onLoginSuccess: (isAdmin: boolean) => void) => {
       const userDocSnap = await getDoc(userDocRef);
       
       if (!userDocSnap.exists()) {
-        // PRO TIP: En un entorno real, este email debería venir de variables de entorno (ej. import.meta.env.VITE_ADMIN_EMAIL)
         const isAdmin = user.email === 'rivatagaston@gmail.com';
         await setDoc(userDocRef, {
           email: user.email,
           name: user.displayName,
-          role: isAdmin ? 'admin' : 'operator',
+          role: isAdmin ? 'supervisor' : 'operator',
+          status: isAdmin ? 'active' : 'pending',
           createdAt: new Date().toISOString()
         });
         return isAdmin;
       }
       
-      return userDocSnap.data().role === 'admin';
+      const role = userDocSnap.data().role;
+      return role === 'admin' || role === 'supervisor';
     } catch (err) {
       handleFirestoreError(err, 'get' as any, `users/${user.uid}`);
       throw new Error('Imposible conectar con el directorio de identidades neurales.');
@@ -304,3 +305,4 @@ export function Login({ onLogin }: LoginProps) {
     </main>
   );
 }
+

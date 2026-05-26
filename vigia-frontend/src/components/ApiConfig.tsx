@@ -17,7 +17,8 @@ import {
   ChevronRight,
   Activity,
   Zap,
-  Sparkles
+  Sparkles,
+  FileText
 } from 'lucide-react';
 import { useTenant } from '../lib/TenantContext';
 import { useState, useEffect } from 'react';
@@ -28,12 +29,12 @@ type CustomEndpoint = {
   id: string;
   name: string;
   url: string;
-  type: 'compras' | 'servicios';
+  type: 'compras' | 'servicios'| 'acopio';
   soapAction?: string; // Optional custom soapAction
 };
 
 export function ApiConfig({ isAdmin }: { isAdmin?: boolean }) {
-  const { tenants, activeTenant, setActiveTenant, updateTenantSqlConfig } = useTenant();
+  const { tenants, activeTenant, setActiveTenant, updateTenantSqlConfig, updateTenantModules } = useTenant();
 
   // Test states
   const [isTesting, setIsTesting] = useState(false);
@@ -51,6 +52,16 @@ export function ApiConfig({ isAdmin }: { isAdmin?: boolean }) {
   const [endpointServicios, setEndpointServicios] = useState('');
   const [erpHost, setErpHost] = useState('');
 
+  // Modules activation states
+  const [modExtractor, setModExtractor] = useState(true);
+  const [modCheques, setModCheques] = useState(true);
+  const [modCintelink, setModCintelink] = useState(false);
+  const [modWilliams, setModWilliams] = useState(false);
+  
+  const [compCompras, setCompCompras] = useState(true);
+  const [compServicios, setCompServicios] = useState(true);
+  const [compRetenciones, setCompRetenciones] = useState(true);
+
   // Form for adding a custom endpoint
   const [showAddEndpoint, setShowAddEndpoint] = useState(false);
   const [newEndpointName, setNewEndpointName] = useState('');
@@ -61,7 +72,7 @@ export function ApiConfig({ isAdmin }: { isAdmin?: boolean }) {
   // Sync edit form with selected active tenant
   useEffect(() => {
     if (activeTenant) {
-      const config = activeTenant.sqlConfig || {};
+      const config = activeTenant.sqlConfig || ({} as any);
       setSqlServer(config.server || '');
       setSqlPort(config.port || '1433');
       setSqlDatabase(config.database || '');
@@ -71,6 +82,16 @@ export function ApiConfig({ isAdmin }: { isAdmin?: boolean }) {
       setEndpointCompras(config.endpointCompras || '/IA/ServiceFactura.asmx');
       setEndpointServicios(config.endpointServicios || '/IA/ServiceCuentaCorriente.asmx');
       setErpHost(config.erpHost || 'https://terra-verde.ddns.net/');
+
+      const modules = activeTenant.modules || {};
+      setModExtractor(modules.extractorActivo ?? true);
+      setModCheques(modules.chequesActivo ?? true);
+      setModCintelink(modules.cintelinkActivo ?? false);
+      setModWilliams(modules.williamsActivo ?? false);
+      
+      setCompCompras(modules.compComprasActivo ?? true);
+      setCompServicios(modules.compServiciosActivo ?? true);
+      setCompRetenciones(modules.compRetencionesActivo ?? true);
     }
   }, [activeTenant]);
 
@@ -102,7 +123,19 @@ export function ApiConfig({ isAdmin }: { isAdmin?: boolean }) {
         customEndpoints // maintain current list
       };
 
+      const updatedModules = {
+        extractorActivo: modExtractor,
+        chequesActivo: modCheques,
+        cintelinkActivo: modCintelink,
+        williamsActivo: modWilliams,
+        compComprasActivo: compCompras,
+        compServiciosActivo: compServicios,
+        compRetencionesActivo: compRetenciones,
+      };
+
       await updateTenantSqlConfig(activeTenant.id, updatedConfig);
+      await updateTenantModules(activeTenant.id, updatedModules);
+      
       notify({
         type: 'success',
         title: 'Configuración Guardada',
@@ -255,9 +288,6 @@ export function ApiConfig({ isAdmin }: { isAdmin?: boolean }) {
       {/* Upper Header: Neural & Corporate Accent */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-white/5 pb-6">
         <div>
-          <span className="text-[10px] font-black uppercase tracking-widest text-[#E30613] flex items-center gap-1.5 mb-1">
-            <Sparkles className="w-3.5 h-3.5 text-[#E30613] animate-pulse" /> Módulo Neural / Enlace Cliente
-          </span>
           <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-[#E30613] to-rose-500 leading-tight inline-block pb-1">
             Conexión de Clientes.
           </h2>
@@ -437,6 +467,111 @@ export function ApiConfig({ isAdmin }: { isAdmin?: boolean }) {
                   </motion.div>
                 )}
               </AnimatePresence>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900/60 p-6 rounded-[2.2rem] border border-slate-200 dark:border-white/5 shadow-sm space-y-6">
+            <div className="flex items-center gap-3 border-b border-slate-200 dark:border-white/5 pb-4">
+              <div className="p-3 bg-indigo-50 dark:bg-indigo-500/10 rounded-2xl text-indigo-600 dark:text-indigo-400">
+                <Settings2 className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Permisos por Cliente</span>
+                <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">Módulos Activos</h4>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <label className="flex items-center justify-between cursor-pointer group">
+                <div className="flex flex-col">
+                  <span className="text-sm font-bold text-slate-900 dark:text-white">Lector Inteligente</span>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400">Extracción de datos desde facturas.</span>
+                </div>
+                <div className={cn("w-10 h-6 border-2 rounded-full relative transition-colors", modExtractor ? "bg-red-600 border-red-600" : "bg-transparent border-slate-300 dark:border-slate-600")}>
+                   <input type="checkbox" className="hidden" checked={modExtractor} onChange={(e) => setModExtractor(e.target.checked)} />
+                   <div className={cn("absolute top-0.5 left-0.5 bg-white w-4 h-4 rounded-full transition-transform", modExtractor ? "translate-x-4" : "")} />
+                </div>
+              </label>
+
+              <label className="flex items-center justify-between cursor-pointer group">
+                <div className="flex flex-col">
+                  <span className="text-sm font-bold text-slate-900 dark:text-white">Lector de Cheques</span>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400">Análisis visual de valores y cheques.</span>
+                </div>
+                <div className={cn("w-10 h-6 border-2 rounded-full relative transition-colors", modCheques ? "bg-red-600 border-red-600" : "bg-transparent border-slate-300 dark:border-slate-600")}>
+                   <input type="checkbox" className="hidden" checked={modCheques} onChange={(e) => setModCheques(e.target.checked)} />
+                   <div className={cn("absolute top-0.5 left-0.5 bg-white w-4 h-4 rounded-full transition-transform", modCheques ? "translate-x-4" : "")} />
+                </div>
+              </label>
+
+              <label className="flex items-center justify-between cursor-pointer group">
+                <div className="flex flex-col">
+                  <span className="text-sm font-bold text-slate-900 dark:text-white">Cintelink Sync</span>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400">Sincronización bancaria.</span>
+                </div>
+                <div className={cn("w-10 h-6 border-2 rounded-full relative transition-colors", modCintelink ? "bg-red-600 border-red-600" : "bg-transparent border-slate-300 dark:border-slate-600")}>
+                   <input type="checkbox" className="hidden" checked={modCintelink} onChange={(e) => setModCintelink(e.target.checked)} />
+                   <div className={cn("absolute top-0.5 left-0.5 bg-white w-4 h-4 rounded-full transition-transform", modCintelink ? "translate-x-4" : "")} />
+                </div>
+              </label>
+
+              <label className="flex items-center justify-between cursor-pointer group">
+                <div className="flex flex-col">
+                  <span className="text-sm font-bold text-slate-900 dark:text-white">Williams Logística</span>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400">Cartas de porte y auditorías.</span>
+                </div>
+                <div className={cn("w-10 h-6 border-2 rounded-full relative transition-colors", modWilliams ? "bg-red-600 border-red-600" : "bg-transparent border-slate-300 dark:border-slate-600")}>
+                   <input type="checkbox" className="hidden" checked={modWilliams} onChange={(e) => setModWilliams(e.target.checked)} />
+                   <div className={cn("absolute top-0.5 left-0.5 bg-white w-4 h-4 rounded-full transition-transform", modWilliams ? "translate-x-4" : "")} />
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900/60 p-6 rounded-[2.2rem] border border-slate-200 dark:border-white/5 shadow-sm space-y-6">
+            <div className="flex items-center gap-3 border-b border-slate-200 dark:border-white/5 pb-4">
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-500/10 rounded-2xl text-emerald-600 dark:text-emerald-400">
+                <FileText className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Restricciones del Motor</span>
+                <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">Tipos de Comprobantes</h4>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <label className="flex items-center justify-between cursor-pointer group">
+                <div className="flex flex-col">
+                  <span className="text-sm font-bold text-slate-900 dark:text-white">Facturas de Compras (Bienes)</span>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400">Mercadería e Insumos Físicos</span>
+                </div>
+                <div className={cn("w-10 h-6 border-2 rounded-full relative transition-colors", compCompras ? "bg-emerald-600 border-emerald-600" : "bg-transparent border-slate-300 dark:border-slate-600")}>
+                   <input type="checkbox" className="hidden" checked={compCompras} onChange={(e) => setCompCompras(e.target.checked)} />
+                   <div className={cn("absolute top-0.5 left-0.5 bg-white w-4 h-4 rounded-full transition-transform", compCompras ? "translate-x-4" : "")} />
+                </div>
+              </label>
+
+              <label className="flex items-center justify-between cursor-pointer group">
+                <div className="flex flex-col">
+                  <span className="text-sm font-bold text-slate-900 dark:text-white">Facturas de Servicios (Gastos)</span>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400">Internet, Honorarios, Suscripciones</span>
+                </div>
+                <div className={cn("w-10 h-6 border-2 rounded-full relative transition-colors", compServicios ? "bg-emerald-600 border-emerald-600" : "bg-transparent border-slate-300 dark:border-slate-600")}>
+                   <input type="checkbox" className="hidden" checked={compServicios} onChange={(e) => setCompServicios(e.target.checked)} />
+                   <div className={cn("absolute top-0.5 left-0.5 bg-white w-4 h-4 rounded-full transition-transform", compServicios ? "translate-x-4" : "")} />
+                </div>
+              </label>
+
+              <label className="flex items-center justify-between cursor-pointer group">
+                <div className="flex flex-col">
+                  <span className="text-sm font-bold text-slate-900 dark:text-white">Retenciones e Impuestos</span>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400">IIBB, Ganancias, IVA</span>
+                </div>
+                <div className={cn("w-10 h-6 border-2 rounded-full relative transition-colors", compRetenciones ? "bg-emerald-600 border-emerald-600" : "bg-transparent border-slate-300 dark:border-slate-600")}>
+                   <input type="checkbox" className="hidden" checked={compRetenciones} onChange={(e) => setCompRetenciones(e.target.checked)} />
+                   <div className={cn("absolute top-0.5 left-0.5 bg-white w-4 h-4 rounded-full transition-transform", compRetenciones ? "translate-x-4" : "")} />
+                </div>
+              </label>
             </div>
           </div>
         </div>

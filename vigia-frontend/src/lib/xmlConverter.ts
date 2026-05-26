@@ -24,6 +24,8 @@ export interface RojosoftConfig {
   alicuotaRetencion?: number;
   importeBaseRetencion?: number;
   provinciaRetencion?: string;
+  estado?: string;
+  planCuenta?: string;
 }
 
 // Helper to format dates for Rojosoft (YYYY-MM-DDTHH:MM:SS)
@@ -83,8 +85,9 @@ export function jsonToRojosoftSoapXml(jsonData: any, config: RojosoftConfig) {
         <Comprobante>${config.comprobante || 'RTB'}</Comprobante>
         <Planta>${config.planta || 'PB'}</Planta>
         <NroComprobante>${nroComp}</NroComprobante>
+        <TipoComprobanteCAI>99</TipoComprobanteCAI>
         <Detalle>${(jsonData.detalle?.[0]?.descripcion || 'RETENCION IMPOSITIVA').substring(0, 40)}</Detalle>
-        <Estado>FI</Estado>
+        <Estado>${config.estado || 'FI'}</Estado>
  
         <CalculaRetencionIngrBrutos>Checked</CalculaRetencionIngrBrutos>
         <FechaOrigen>${fecha}</FechaOrigen>
@@ -203,10 +206,11 @@ export function jsonToRojosoftSoapXml(jsonData: any, config: RojosoftConfig) {
               Afecta: 'eaCCNoAfecta',
               DC: '1',
               Modulo: 'mCtaCte',
-              Estado: 'FI',
+              Estado: config.estado || 'FI',
               CuentaCorrienteCuerpos: {
                 typCuentaCorrienteCuerpo: {
                   Descripcion: (jsonData.cabecera?.observaciones || jsonData.detalle?.[0]?.descripcion || 'SERVICIO').substring(0, 40),
+                  PlanCuenta: (config as any).planCuenta || '0',
                   Moneda: moneda,
                   CotizacionMoneda: Number(cotizacion).toFixed(6),
                   ImporteGravado: Number(jsonData.totales?.neto_gravado || 0).toFixed(2),

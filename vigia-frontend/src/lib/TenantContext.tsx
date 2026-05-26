@@ -5,17 +5,25 @@ import { collection, query, where, onSnapshot, doc, getDoc, updateDoc, increment
 export interface TenantConfig {
   id: string;
   name: string;
+  modules?: {
+    extractorActivo?: boolean;
+    chequesActivo?: boolean;
+    cintelinkActivo?: boolean;
+    williamsActivo?: boolean;
+    compComprasActivo?: boolean;
+    compServiciosActivo?: boolean;
+    compRetencionesActivo?: boolean;
+  };
   sqlConfig?: {
-    server?: string;
-    database?: string;
-    user?: string;
+    server: string;
+    port?: string;
+    database: string;
+    user: string;
     password?: string;
     instanceName?: string;
+    erpHost?: string;
     endpointCompras?: string;
     endpointServicios?: string;
-    port?: string;
-    erpHost?: string;
-
     customEndpoints?: { id: string; name: string; url: string; type: 'compras' | 'servicios' }[];
   };
   billing?: {
@@ -27,6 +35,11 @@ export interface TenantConfig {
     currentMonthExtractions: number;
     lastExtractionAt?: any;
   };
+  settings?: {
+    maxMonthlyExtractions?: number;
+    strictItemCheck?: boolean;
+    notificationEmail?: string;
+  };
 }
 
 interface TenantContextType {
@@ -35,8 +48,11 @@ interface TenantContextType {
   tenants: TenantConfig[];
   loading: boolean;
   isAdmin: boolean;
+  userRole: 'admin' | 'supervisor' | 'operator' | 'driver' | null;
+  userStatus: 'active' | 'pending' | 'suspended' | null;
   incrementTenantUsage: (tenantId: string) => Promise<void>;
   updateTenantSqlConfig: (tenantId: string, sqlConfig: any) => Promise<void>;
+  updateTenantModules: (tenantId: string, modules: any) => Promise<void>;
 }
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
@@ -46,6 +62,8 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   const [activeTenantId, setActiveTenantId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [userRole, setUserRole] = useState<'admin' | 'supervisor' | 'operator' | 'driver' | null>(null);
+  const [userStatus, setUserStatus] = useState<'active' | 'pending' | 'suspended' | null>(null);
 
   // Local storage cache for offline/instant increment tracking
   const [localExtractions, setLocalExtractions] = useState<Record<string, number>>(() => {
@@ -67,6 +85,15 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     }
   });
 
+  const [localModules, setLocalModules] = useState<Record<string, any>>(() => {
+    try {
+      const saved = localStorage.getItem('local_modules');
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+
   useEffect(() => {
     localStorage.setItem('local_extractions', JSON.stringify(localExtractions));
   }, [localExtractions]);
@@ -76,20 +103,27 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   }, [localSqlConfigs]);
 
   useEffect(() => {
+    localStorage.setItem('local_modules', JSON.stringify(localModules));
+  }, [localModules]);
+
+  useEffect(() => {
     const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
       if (user) {
         // 1. Verificar rol y orgId del usuario
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         const userData = userDoc.data();
         const userOrgId = userData?.orgId;
-        const userRole = userData?.role || (user.email === 'rivatagaston@gmail.com' ? 'admin' : 'operator');
+        const userRoleDb = userData?.role || (user.email === 'rivatagaston@gmail.com' ? 'supervisor' : 'operator');
+        const userStatusDb = userData?.status || (user.email === 'rivatagaston@gmail.com' ? 'active' : 'pending');
         
-        setIsAdmin(userRole === 'admin' && !userOrgId);
+        setUserRole(userRoleDb);
+        setUserStatus(userStatusDb);
+        setIsAdmin((userRoleDb === 'admin' || userRoleDb === 'supervisor') && !userOrgId);
 
         // 2. Cargar organizaciones permitidas
         let unsubscribeOrgs: () => void;
 
-        if (userRole === 'admin' && !userOrgId) {
+        if ((userRoleDb === 'admin' || userRoleDb === 'supervisor') && !userOrgId) {
           // SuperAdmin ve todo
           const q = query(collection(db, 'organizations'));
           unsubscribeOrgs = onSnapshot(q, (snapshot) => {
@@ -140,6 +174,8 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         setActiveTenantId(null);
         setLoading(false);
         setIsAdmin(false);
+        setUserRole(null);
+        setUserStatus(null);
       }
     });
 
@@ -184,13 +220,32 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateTenantModules = async (tenantId: string, modules: any) => {
+    // 1. Save locally first so it runs immediately
+    setLocalModules(prev => ({
+      ...prev,
+      [tenantId]: modules
+    }));
+
+    // 2. Try saving to Firestore
+    try {
+      const orgRef = doc(db, 'organizations', tenantId);
+      await updateDoc(orgRef, { modules });
+      console.log(`[VIGIA] Firestore modules updated for tenant ${tenantId}`);
+    } catch (err: any) {
+      console.warn(`[VIGIA] Could not update Firestore modules. Saved as local setting:`, err.message || err);
+    }
+  };
+
   // Map standard tenants array to include merged values
   const mergedTenants = rawTenants.map(tenant => {
     const localExtra = localExtractions[tenant.id] || 0;
     const localConfig = localSqlConfigs[tenant.id] || null;
+    const localMods = localModules[tenant.id] || null;
     return {
       ...tenant,
       sqlConfig: localConfig ? { ...(tenant.sqlConfig || {}), ...localConfig } : tenant.sqlConfig,
+      modules: localMods ? { ...(tenant.modules || {}), ...localMods } : tenant.modules,
       usage: {
         totalExtractions: (tenant.usage?.totalExtractions || 0) + localExtra,
         currentMonthExtractions: (tenant.usage?.currentMonthExtractions || 0) + localExtra,
@@ -215,8 +270,11 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       tenants: mergedTenants, 
       loading, 
       isAdmin,
+      userRole,
+      userStatus,
       incrementTenantUsage,
-      updateTenantSqlConfig
+      updateTenantSqlConfig,
+      updateTenantModules
     }}>
       {children}
     </TenantContext.Provider>

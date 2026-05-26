@@ -21,7 +21,9 @@ import {
   ChevronDown,
   ChevronRight,
   CheckCircle2,
-  Cpu
+  Cpu,
+  ShieldCheck,
+  Wifi
 } from 'lucide-react';
 import { UploadSection } from './components/UploadSection';
 import { ResultsDisplay } from './components/ResultsDisplay';
@@ -31,16 +33,17 @@ import { Settings } from './components/Settings';
 import { HistoryView } from './components/HistoryView';
 import { VigiaLogo } from './components/VigiaLogo';
 import { ChequeReader } from './components/ChequeReader';
+import { LiveMapDashboard } from './components/LiveMapDashboard';
 import { extractDocumentData } from './lib/gemini';
 import { cn } from './lib/utils';
 import { notify } from './lib/notifications';
 import { auth, db, handleFirestoreError } from './lib/firebase';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, deleteField } from 'firebase/firestore';
 import { useTenant } from './lib/TenantContext';
 import { useAnimatedFavicon } from './lib/useAnimatedFavicon';
 
-type ViewState = 'hub' | 'extractor' | 'cheques' | 'history' | 'api' | 'settings';
+type ViewState = 'hub' | 'extractor' | 'cheques' | 'history' | 'api' | 'settings' | 'livemap';
 
 function TabItem({ active, onClick, icon, label, className }: { active: boolean; onClick: () => void; icon: ReactNode; label: string, className?: string }) {
   return (
@@ -89,10 +92,121 @@ const SubNavItem = ({ active, onClick, icon, label }: { active: boolean; onClick
   </button>
 );
 
+function DriverRegistrationScreen({ uid, defaultName, onCancel }: { uid: string; defaultName: string; onCancel: () => void }) {
+  const [step, setStep] = useState<'data' | 'verify'>('data');
+  const [driverName, setDriverName] = useState(defaultName);
+  const [truckId, setTruckId] = useState('');
+  const [phone, setPhone] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleDataSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!truckId || !driverName || !phone) return;
+    setIsSubmitting(true);
+    // Simula envío de SMS
+    setTimeout(() => {
+      setIsSubmitting(false);
+      setStep('verify');
+      notify({ type: 'success', title: 'SMS Enviado', message: 'Se ha enviado un código a ' + phone });
+    }, 1500);
+  };
+
+  const handleVerifySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!verificationCode) return;
+    if (verificationCode.length < 4) {
+      notify({ type: 'error', title: 'Código Inválido', message: 'El código debe tener al menos 4 dígitos.' });
+      return;
+    }
+    
+    setIsSubmitting(true);
+    // Simulate verif
+    setTimeout(async () => {
+      try {
+        await updateDoc(doc(db, 'users', uid), { 
+          role: 'driver', 
+          status: 'active',
+          name: driverName,
+          truckId: truckId.toUpperCase(),
+          phone: phone
+        });
+        window.location.reload();
+      } catch (err) {
+        console.error(err);
+        setIsSubmitting(false);
+      }
+    }, 1000);
+  };
+
+  if (step === 'verify') {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-6 transition-colors duration-300">
+         <div className="max-w-md w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 p-8 rounded-3xl shadow-xl">
+             <div className="w-16 h-16 bg-blue-50 dark:bg-blue-500/10 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-6">
+               <ShieldCheck className="w-8 h-8" />
+             </div>
+             <h2 className="text-2xl font-black uppercase italic tracking-tight text-slate-900 dark:text-white mb-2 text-center">Verifica tu Número</h2>
+             <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-8 leading-relaxed text-center">
+               Ingresa el código que acabamos de enviar por SMS al <strong>{phone}</strong>
+             </p>
+             <form onSubmit={handleVerifySubmit} className="space-y-4">
+                <div>
+                   <input type="text" value={verificationCode} onChange={e => setVerificationCode(e.target.value)} required className="w-full text-center tracking-[1em] bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-4 text-2xl font-black text-slate-900 dark:text-white uppercase outline-none focus:border-blue-500 transition-colors" placeholder="000000" maxLength={6} />
+                </div>
+                <div className="pt-4 flex gap-3">
+                   <button type="button" onClick={() => setStep('data')} className="flex-1 px-4 py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-black text-xs uppercase tracking-widest rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Modificar</button>
+                   <button type="submit" disabled={isSubmitting} className="flex-1 px-4 py-3 bg-blue-500 text-white font-black text-xs uppercase tracking-widest rounded-xl hover:bg-blue-600 transition-colors disabled:opacity-50 flex items-center justify-center">
+                     {isSubmitting ? 'Chequeando...' : 'Confirmar'}
+                   </button>
+                </div>
+             </form>
+         </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-6 transition-colors duration-300">
+         <div className="max-w-md w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 p-8 rounded-3xl shadow-xl">
+             <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
+               <Truck className="w-8 h-8" />
+             </div>
+             <h2 className="text-2xl font-black uppercase italic tracking-tight text-slate-900 dark:text-white mb-2 text-center">Registro de Unidad</h2>
+             <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-8 leading-relaxed text-center">
+               Para comenzar a emitir tu ubicación, necesitamos registrar los datos de tu vehículo comercial.
+             </p>
+             
+             <form onSubmit={handleDataSubmit} className="space-y-4">
+                <div>
+                   <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">Nombre del Chofer</label>
+                   <input type="text" value={driverName} onChange={e => setDriverName(e.target.value)} required className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm font-semibold text-slate-900 dark:text-white outline-none focus:border-emerald-500 transition-colors" placeholder="Ej: Juan Pérez" />
+                </div>
+                <div>
+                   <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">Teléfono Móvil (Validación SMS)</label>
+                   <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} required className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm font-semibold text-slate-900 dark:text-white outline-none focus:border-emerald-500 transition-colors" placeholder="+54 9 11 1234-5678" />
+                </div>
+                <div>
+                   <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">Identificador de Unidad / Patente</label>
+                   <input type="text" value={truckId} onChange={e => setTruckId(e.target.value)} required className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm font-black text-slate-900 dark:text-white uppercase outline-none focus:border-emerald-500 transition-colors" placeholder="Ej: TRK-001 o AC123XX" />
+                </div>
+                
+                <div className="pt-4 flex gap-3">
+                   <button type="button" onClick={onCancel} className="flex-1 px-4 py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-black text-xs uppercase tracking-widest rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Volver</button>
+                   <button type="submit" disabled={isSubmitting} className="flex-1 px-4 py-3 bg-emerald-500 text-white font-black text-xs uppercase tracking-widest rounded-xl hover:bg-emerald-600 transition-colors disabled:opacity-50 flex items-center justify-center">
+                     {isSubmitting ? 'Enviando...' : 'Requerir PIN SMS'}
+                   </button>
+                </div>
+             </form>
+         </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const { activeTenant, setActiveTenant, tenants, isAdmin, loading: tenantLoading } = useTenant();
+  const { activeTenant, setActiveTenant, tenants, isAdmin, userStatus, userRole, loading: tenantLoading } = useTenant();
   
   const [currentView, setCurrentView] = useState<ViewState>('hub');
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -110,6 +224,7 @@ export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isTenantDropdownOpen, setIsTenantDropdownOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const [isRegisteringDriver, setIsRegisteringDriver] = useState(false);
 
   // Activa el gif iconico en modo claro o modo oscuro
   useAnimatedFavicon(theme);
@@ -213,6 +328,119 @@ export default function App() {
     return <Login onLogin={() => {}} />;
   }
 
+  if (isRegisteringDriver) {
+    return (
+      <DriverRegistrationScreen 
+        uid={user.uid} 
+        defaultName={user.displayName || user.email?.split('@')[0] || ''} 
+        onCancel={() => setIsRegisteringDriver(false)} 
+      />
+    );
+  }
+
+  if (userStatus === 'pending') {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-6 transition-colors duration-300">
+         <div className="max-w-md w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 p-8 rounded-3xl shadow-xl text-center">
+             <div className="w-16 h-16 bg-amber-50 dark:bg-amber-500/10 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-6">
+               <ShieldCheck className="w-8 h-8" />
+             </div>
+             <h2 className="text-2xl font-black uppercase italic tracking-tight text-slate-900 dark:text-white mb-2">Cuenta en Revisión</h2>
+             <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-8 leading-relaxed">
+               Tu acceso a la red de VIGIA está pendiente de revisión. Por favor indica qué tipo de rol necesitas para agilizar el proceso de alta.
+             </p>
+
+             <div className="flex flex-col gap-3">
+                <button 
+                  onClick={async () => {
+                    await updateDoc(doc(db, 'users', user.uid), { role: 'operator' });
+                    notify({ type: 'success', title: 'Solicitud Enviada', message: 'Se ha solicitado el acceso Operador.' });
+                  }}
+                  className="p-4 rounded-2xl border-2 border-slate-200 dark:border-white/5 hover:border-red-500 dark:hover:border-red-500 flex items-center gap-4 group transition-all text-left"
+                >
+                  <div className="w-10 h-10 rounded-full bg-red-50 dark:bg-red-500/10 text-red-500 flex items-center justify-center shrink-0">
+                     <Database className="w-5 h-5" />
+                  </div>
+                  <div>
+                     <span className="block font-black text-slate-900 dark:text-white uppercase text-xs">Operador Corporativo</span>
+                     <span className="block text-[10px] text-slate-500 font-semibold leading-tight mt-1">Acceso a lectura de comprobantes y enlace ERP.</span>
+                  </div>
+                </button>
+
+                <button 
+                  onClick={() => setIsRegisteringDriver(true)}
+                  className="p-4 rounded-2xl border-2 border-slate-200 dark:border-white/5 hover:border-emerald-500 dark:hover:border-emerald-500 flex items-center gap-4 group transition-all text-left"
+                >
+                  <div className="w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
+                     <Truck className="w-5 h-5" />
+                  </div>
+                  <div>
+                     <span className="block font-black text-slate-900 dark:text-white uppercase text-xs">Chofer Logístico</span>
+                     <span className="block text-[10px] text-slate-500 font-semibold leading-tight mt-1">Aplicación móvil de localización y enrutamiento.</span>
+                  </div>
+                </button>
+             </div>
+
+             <button onClick={handleLogout} className="mt-8 text-xs font-black uppercase text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 tracking-widest transition-colors flex items-center justify-center gap-2 w-full">
+               <LogOut className="w-4 h-4" /> Cancelar / Cerrar Sesión
+             </button>
+         </div>
+      </div>
+    );
+  }
+
+  // Chofer layout
+  if (userRole === 'driver') {
+    return (
+      <div className="min-h-screen flex flex-col bg-slate-900 dark:bg-slate-950 font-sans selection:bg-emerald-500/30">
+        {/* Cabecera chofer */}
+        <header className="h-16 bg-slate-950 border-b border-white/10 px-4 flex items-center justify-between">
+           <div className="flex items-center gap-2 text-white">
+              <Truck className="w-6 h-6 text-emerald-500" />
+              <h1 className="text-lg font-black tracking-tight italic uppercase">Vigia <span className="text-emerald-500">Chofer</span></h1>
+           </div>
+           <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-white transition-colors">
+              <LogOut className="w-5 h-5" />
+           </button>
+        </header>
+        <div className="flex-1 p-6 flex flex-col items-center justify-center text-center text-white">
+           <div className="w-32 h-32 bg-emerald-500/10 rounded-full flex items-center justify-center border-4 border-emerald-500/20 shadow-[0_0_50px_rgba(16,185,129,0.3)] mb-8">
+              <Wifi className="w-12 h-12 text-emerald-500 animate-pulse" />
+           </div>
+           <h2 className="text-2xl font-black uppercase tracking-widest mb-2">Transmisión Activa</h2>
+           <p className="text-slate-400 font-medium text-sm">Tu ubicación está siendo monitoreada por el centro de control.</p>
+           
+           <div className="mt-12 bg-white/5 border border-white/10 p-4 rounded-2xl w-full max-w-sm">
+             <div className="flex justify-between items-center text-sm font-bold border-b border-white/5 pb-2 mb-2">
+               <span className="text-slate-400">Estado</span>
+               <span className="text-emerald-400">En Ruta</span>
+             </div>
+             <div className="flex justify-between items-center text-sm font-bold border-b border-white/5 pb-2 mb-2">
+               <span className="text-slate-400">Velocidad Promedio</span>
+               <span className="text-white">75 km/h</span>
+             </div>
+             <div className="flex justify-between items-center text-sm font-bold">
+               <span className="text-slate-400">Próximo Reporte</span>
+               <span className="text-slate-300">Emisíon continua</span>
+             </div>
+           </div>
+           
+           <div className="mt-8 pt-8 border-t border-white/5 w-full max-w-sm flex flex-col gap-2">
+                <button 
+                  onClick={async () => {
+                     await updateDoc(doc(db, 'users', user.uid), { role: 'supervisor', status: 'active', phone: deleteField(), truckId: deleteField() });
+                     window.location.reload();
+                  }}
+                  className="px-4 py-3 border border-white/10 rounded-xl text-[10px] font-black uppercase text-slate-400 hover:text-white hover:bg-white/5 transition-colors tracking-widest"
+                >
+                  Simular reinicio (Volver a HUB)
+                </button>
+           </div>
+        </div>
+      </div>
+    );
+  }
+
   const initialLetter = user.displayName ? user.displayName.charAt(0).toUpperCase() : user.email?.charAt(0).toUpperCase() || 'U';
 
   return (
@@ -244,12 +472,13 @@ export default function App() {
           {/* Unified Horizontal Nav Navbar */}
           <nav className="flex items-center gap-1">
             {[
-              { id: 'hub', label: 'Hub', icon: LayoutGrid },
-              { id: 'extractor', label: 'Lector', icon: Scan },
-              { id: 'cheques', label: 'Cheques', icon: CreditCard },
-              { id: 'api', label: 'Conexión ERP', icon: Database },
-              { id: 'settings', label: 'Preferencias', icon: SettingsIcon }
-            ].map((item) => {
+              { id: 'hub', label: 'Hub', icon: LayoutGrid, visible: true },
+              { id: 'extractor', label: 'Lector', icon: Scan, visible: activeTenant?.modules?.extractorActivo !== false },
+              { id: 'cheques', label: 'Cheques', icon: CreditCard, visible: activeTenant?.modules?.chequesActivo !== false },
+              { id: 'livemap', label: 'Rastreo', icon: Truck, visible: activeTenant?.modules?.williamsActivo !== false },
+              { id: 'api', label: 'Conexión ERP', icon: Database, visible: true },
+              { id: 'settings', label: 'Preferencias', icon: SettingsIcon, visible: true }
+            ].filter(i => i.visible).map((item) => {
               const active = item.id === 'extractor' 
                 ? ['extractor', 'history'].includes(currentView)
                 : currentView === item.id;
@@ -288,7 +517,7 @@ export default function App() {
             </div>
 
             <div className="flex items-center gap-1.5 text-[10px] font-black tracking-[0.2em] uppercase text-slate-400 dark:text-slate-500">
-              <span>ERP LINK:</span>
+              <span>Cliente DB:</span>
             </div>
 
             {/* Interactive dropdown trigger */}
@@ -365,11 +594,6 @@ export default function App() {
                 )}
               </AnimatePresence>
             </div>
-
-            <div className="hidden lg:flex items-center gap-1 px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-[8px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 rounded-md ml-1">
-              <Cpu className="w-2.5 h-2.5 shrink-0" />
-              <span>SOAP LINK</span>
-            </div>
           </div>
 
           <button onClick={toggleTheme} className="p-2.5 text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full transition-colors shrink-0">
@@ -437,6 +661,17 @@ export default function App() {
                     >
                       <SettingsIcon className="w-4 h-4 text-slate-400" />
                       <span>Preferencias Globales</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setIsProfileDropdownOpen(false);
+                        setIsRegisteringDriver(true);
+                      }}
+                      className="w-full text-left px-2.5 py-2 text-xs rounded-xl font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 flex items-center gap-2 transition-all mt-0.5"
+                    >
+                      <Truck className="w-4 h-4" />
+                      <span>Probar Form de Chofer</span>
                     </button>
 
                     <div className="h-px bg-slate-100 dark:bg-white/5 my-1.5" />
@@ -513,18 +748,30 @@ export default function App() {
                   icon={<LayoutGrid className="w-5 h-5" />}
                   label="Hub de Integraciones"
                 />
-                <TabItem 
-                  active={['extractor', 'history'].includes(currentView)} 
-                  onClick={() => navigateTo('extractor')}
-                  icon={<Scan className="w-5 h-5" />}
-                  label="Lector Inteligente"
-                />
-                <TabItem 
-                  active={currentView === 'cheques'} 
-                  onClick={() => navigateTo('cheques')}
-                  icon={<CreditCard className="w-5 h-5" />}
-                  label="Lector de Cheques"
-                />
+                {(activeTenant?.modules?.extractorActivo !== false) && (
+                  <TabItem 
+                    active={['extractor', 'history'].includes(currentView)} 
+                    onClick={() => navigateTo('extractor')}
+                    icon={<Scan className="w-5 h-5" />}
+                    label="Lector Inteligente"
+                  />
+                )}
+                {(activeTenant?.modules?.chequesActivo !== false) && (
+                  <TabItem 
+                    active={currentView === 'cheques'} 
+                    onClick={() => navigateTo('cheques')}
+                    icon={<CreditCard className="w-5 h-5" />}
+                    label="Lector de Cheques"
+                  />
+                )}
+                {(activeTenant?.modules?.williamsActivo !== false) && (
+                  <TabItem 
+                    active={currentView === 'livemap'} 
+                    onClick={() => navigateTo('livemap')}
+                    icon={<Truck className="w-5 h-5" />}
+                    label="Rastreo Logístico"
+                  />
+                )}
                 <TabItem 
                   active={currentView === 'api'} 
                   onClick={() => navigateTo('api')}
@@ -605,6 +852,7 @@ export default function App() {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full relative z-10 px-4">
                           {/* Lector Inteligente */}
+                  {(activeTenant?.modules?.extractorActivo !== false) && (
                   <motion.div
                     whileHover={{ y: -8, scale: 1.01 }}
                     whileTap={{ scale: 0.98 }}
@@ -620,7 +868,7 @@ export default function App() {
                          <Scan className="w-8 h-8" />
                        </div>
                        <span className="px-3 py-1 bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg shadow-emerald-500/20 animate-pulse border border-emerald-400">
-                         En Linea
+                         Online
                        </span>
                     </div>
                     <div className="relative z-10 flex-1">
@@ -628,7 +876,7 @@ export default function App() {
                         Lector <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-600 to-rose-400">Inteligente</span>
                       </h3>
                       <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 leading-relaxed border-l-2 border-red-500/30 pl-3">
-                        Procesa facturas, tickets y retenciones con visión neural. Inserción directa en tiempo real.
+                        Procesa facturas de insumos/servicios, retenciones o Cartas de Porte. Inserción directa en tiempo real.
                       </p>
                     </div>
                     <div className="mt-8 flex items-center gap-2 text-red-600 dark:text-red-400 text-xs font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity group-hover:-translate-x-1 duration-300 relative z-10">
@@ -636,8 +884,10 @@ export default function App() {
                       <ArrowLeft className="w-4 h-4 rotate-180" />
                     </div>
                   </motion.div>
+                  )}
 
                   {/* Lector de Cheques */}
+                  {(activeTenant?.modules?.chequesActivo !== false) && (
                   <motion.div
                     whileHover={{ y: -8, scale: 1.01 }}
                     whileTap={{ scale: 0.98 }}
@@ -653,7 +903,7 @@ export default function App() {
                          <CreditCard className="w-8 h-8" />
                        </div>
                        <span className="px-3 py-1 bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg shadow-emerald-500/20 animate-pulse border border-emerald-400">
-                         En Linea
+                         Online
                        </span>
                     </div>
                     <div className="relative z-10 flex-1">
@@ -669,8 +919,10 @@ export default function App() {
                       <ArrowLeft className="w-4 h-4 rotate-180" />
                     </div>
                   </motion.div>
+                  )}
 
                   {/* Cintelink */}
+                  {(activeTenant?.modules?.cintelinkActivo !== false) && (
                   <div className="p-8 bg-slate-100/50 dark:bg-slate-900/20 border border-slate-200 dark:border-white/5 rounded-[2.5rem] relative overflow-hidden group cursor-not-allowed grayscale">
                     <div className="flex justify-between items-start mb-8">
                       <div className="w-14 h-14 bg-slate-200 dark:bg-slate-800 text-slate-400 rounded-2xl flex items-center justify-center">
@@ -687,25 +939,91 @@ export default function App() {
                       Sincronización bancaria y conciliación proyectiva para flujos de caja automáticos.
                     </p>
                   </div>
+                  )}
 
-                  {/* Williams Entregas */}
-                  <div className="p-8 bg-slate-100/50 dark:bg-slate-900/20 border border-slate-200 dark:border-white/5 rounded-[2.5rem] relative overflow-hidden group cursor-not-allowed grayscale">
-                    <div className="flex justify-between items-start mb-8">
-                      <div className="w-14 h-14 bg-slate-200 dark:bg-slate-800 text-slate-400 rounded-2xl flex items-center justify-center">
-                        <Truck className="w-7 h-7" />
-                      </div>
-                      <span className="px-3 py-1 bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-500 text-[10px] font-black uppercase tracking-widest rounded-full border border-slate-300 dark:border-slate-700">
-                        Proximamente
-                      </span>
+                  {/* Vigia Transporte */}
+                  {(activeTenant?.modules?.williamsActivo !== false) && (
+                  <motion.div
+                    whileHover={{ y: -8, scale: 1.01 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => navigateTo('livemap')}
+                    className="p-8 bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-white/5 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.3)] hover:shadow-[0_20px_60px_rgba(16,185,129,0.15)] hover:border-emerald-500/50 transition-all cursor-pointer group relative overflow-hidden backdrop-blur-xl flex flex-col justify-between h-full"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/0 via-emerald-500/0 to-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                    <div className="absolute -bottom-4 -right-4 p-4 opacity-5 group-hover:opacity-10 transition-all duration-700 group-hover:scale-[1.3] group-hover:rotate-12">
+                      <Truck className="w-56 h-56 text-emerald-600" />
                     </div>
-                    <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-3 tracking-tight italic uppercase">
-                      Williams <span className="text-slate-400 font-medium">Logistics</span>
-                    </h3>
-                    <p className="text-base font-medium text-slate-500 dark:text-slate-400 leading-snug">
-                      Gestión de cartas de porte y auditoría de fletes. Control total de entregas.
-                    </p>
+                    <div className="flex justify-between items-start mb-10 relative z-10">
+                       <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-emerald-700 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-600/30 group-hover:rotate-6 group-hover:scale-110 transition-all duration-500 border border-emerald-400 dark:border-white/10">
+                         <Truck className="w-8 h-8" />
+                       </div>
+                       <span className="px-3 py-1 bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg shadow-emerald-500/20 animate-pulse border border-emerald-400">
+                         Online
+                       </span>
+                    </div>
+                    <div className="relative z-10 flex-1">
+                      <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-4 tracking-tight italic uppercase drop-shadow-sm">
+                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-400">Tracker</span>
+                      </h3>
+                      <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 leading-relaxed border-l-2 border-emerald-500/30 pl-3">
+                        Monitoreo satelital y gestión de flotas. Control total de entregas con IA en tiempo real.
+                      </p>
+                    </div>
+                    <div className="mt-8 flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-xs font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity group-hover:-translate-x-1 duration-300 relative z-10">
+                      <span>Live Tracker</span>
+                      <ArrowLeft className="w-4 h-4 rotate-180" />
+                    </div>
+                  </motion.div>
+                  )}
+
+                </div>
+
+                {/* Secondary Administration & System Configuration Tier */}
+                <div className="w-full mt-14 flex flex-col gap-4 relative z-10 px-4">
+                  <div className="flex items-center gap-4">
+                    <span className="text-[10px] uppercase font-black tracking-widest text-slate-400 dark:text-slate-500">ADMINISTRACIÓN & SOPORTE TÉCNICO VIGIA</span>
+                    <div className="h-px flex-1 bg-slate-200 dark:bg-white/5" />
                   </div>
 
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
+                    {/* Configuración de Terminal */}
+                    <motion.div
+                      whileHover={{ scale: 1.01, y: -4 }}
+                      whileTap={{ scale: 0.99 }}
+                      onClick={() => navigateTo('api')}
+                      className="p-6 bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-white/5 rounded-3xl shadow-sm hover:border-red-500/30 dark:hover:border-red-550/30 cursor-pointer flex items-center justify-between group transition-all"
+                    >
+                      <div className="flex items-center gap-4 overflow-hidden">
+                        <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                          <Database className="w-6 h-6" />
+                        </div>
+                        <div className="truncate text-left">
+                          <h4 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Terminal & Conexión ERP</h4>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">Configurar URLs SOAP de Terraverde, test de base SQL Server y variables.</p>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-5 h-5 text-slate-400 group-hover:translate-x-1.5 transition-transform shrink-0" />
+                    </motion.div>
+
+                    {/* Preferencias Globales */}
+                    <motion.div
+                      whileHover={{ scale: 1.01, y: -4 }}
+                      whileTap={{ scale: 0.99 }}
+                      onClick={() => navigateTo('settings')}
+                      className="p-6 bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-white/5 rounded-3xl shadow-sm hover:border-red-500/30 dark:hover:border-red-550/30 cursor-pointer flex items-center justify-between group transition-all"
+                    >
+                      <div className="flex items-center gap-4 overflow-hidden">
+                        <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                          <SettingsIcon className="w-6 h-6" />
+                        </div>
+                        <div className="truncate text-left">
+                          <h4 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Preferencias Globales</h4>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">Control de claves API Gemini, registros históricos de auditoría y temas.</p>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-5 h-5 text-slate-400 group-hover:translate-x-1.5 transition-transform shrink-0" />
+                    </motion.div>
+                  </div>
                 </div>
               </motion.div>
             )}
@@ -767,6 +1085,12 @@ export default function App() {
             {currentView === 'cheques' && (
               <motion.div key="cheques" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full">
                 <ChequeReader />
+              </motion.div>
+            )}
+
+            {currentView === 'livemap' && (
+              <motion.div key="livemap" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full">
+                <LiveMapDashboard />
               </motion.div>
             )}
 

@@ -13,6 +13,9 @@ const EXTRACTION_SCHEMA = {
       type: Type.OBJECT,
       properties: {
         tipo: { type: Type.STRING, description: "Tipo de comprobante (e.g. Factura A, Retención)" },
+        clasificacion_factura: { type: Type.STRING, description: "Debe ser 'Factura de Compras' o 'Factura de Servicios' según el contenido" },
+        referencia_remito: { type: Type.STRING, description: "Número de remito si se menciona explícitamente, de lo contrario vacío" },
+        conclusion_plan_cuenta: { type: Type.STRING, description: "Conclusión de una o dos palabras de la cuenta contable (Ej: Honorarios, Computación, Insumos) según el detalle" },
         punto_venta: { type: Type.STRING, description: "Punto de venta (4 dígitos)" },
         numero: { type: Type.STRING, description: "Número de comprobante (8 dígitos)" },
         tipo_comprobante_cai: { type: Type.INTEGER, description: "Código TipoComprobanteCAI" },
@@ -199,7 +202,11 @@ export async function extractDocumentData(base64Data: string, mimeType: string) 
   REGLAS DE ORO DE EXTRACCIÓN:
   1. Identificar tipo de comprobante, punto de venta (4 dígitos), número (8 dígitos) y letra (A, B, C, M, X).
   2. Extraer CUIT emisor, razón social emisor, y CUIT del receptor.
-  3. Para Facturas: Desglosar Neto Gravado, No Gravado, IVA (alícuotas 21%, 10.5%), Percepciones (IIBB, IVA, Ganancias) y Total. Si existen percepciones provinciales (ej. Ingresos Brutos), detállalas en 'impuestos_provinciales', indicando provincia, base_imponible, alícuota e importe.
+  3. Para Facturas: Desglosar Neto Gravado, No Gravado, IVA (alícuotas 21%, 10.5%), Percepciones (IIBB, IVA, Ganancias) y Total. 
+     - Clasificación Crítica: Establecer 'clasificacion_factura' como 'Factura de Compras' (bienes/mercadería) o 'Factura de Servicios'.
+     - Remito vs Orden: Si el documento menciona explícitamente relación con un remito (ej: "REMITO: 4503123"), extraer este valor en 'referencia_remito' para forzar match con Remito.
+     - Plan de Cuentas: Analizar el detalle de ítems, sacar conclusión sobre a qué cuenta contable corresponde el gasto/compra y dejar 1-2 palabras sugeridas en 'conclusion_plan_cuenta' (Ej: "Papelería", "Licencias", etc).
+     Si existen percepciones provinciales (ej. Ingresos Brutos), detállalas en 'impuestos_provinciales', indicando provincia, base_imponible, alícuota e importe.
   4. Para Retenciones (CERTI-RET): 
      - El 'total' del documento es el MONTO RETENIDO (Importe Neto de la retención).
      - Identificar obligatoriamente la 'Base Imponible' (Monto sobre el cual se aplicó la retención).

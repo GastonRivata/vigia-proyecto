@@ -32,7 +32,7 @@ export function Settings({ theme, onToggleTheme }: SettingsProps) {
   const user = auth.currentUser;
   const { tenants, activeTenant, isAdmin, setActiveTenant } = useTenant();
   
-  const [activeTab, setActiveTab] = useState<'profile' | 'nexus' | 'billing' | 'ia'>(isAdmin ? 'nexus' : 'billing');
+  const [activeTab, setActiveTab] = useState<'profile' | 'hub' | 'billing' | 'ia'>(isAdmin ? 'hub' : 'billing');
   
   // AI Settings State with local persistence
   const [automationLevel, setAutomationLevel] = useState<'manual' | 'assist' | 'auto'>(() => {
@@ -111,14 +111,14 @@ export function Settings({ theme, onToggleTheme }: SettingsProps) {
         <div className="flex flex-wrap items-center gap-1 bg-slate-100 dark:bg-white/5 p-1 rounded-2xl border border-slate-200 dark:border-white/10 w-fit">
           {isAdmin && (
             <button 
-              onClick={() => setActiveTab('nexus')}
+              onClick={() => setActiveTab('hub')}
               className={cn(
                 "px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                activeTab === 'nexus' ? "bg-white dark:bg-slate-900 text-red-600 shadow-sm" : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                activeTab === 'hub' ? "bg-white dark:bg-slate-900 text-red-600 shadow-sm" : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
               )}
             >
               <div className="flex items-center gap-2">
-                <Building2 className="w-3.5 h-3.5" /> Nexus Global
+                <Building2 className="w-3.5 h-3.5" /> Hub Corporativo
               </div>
             </button>
           )}
@@ -179,7 +179,7 @@ export function Settings({ theme, onToggleTheme }: SettingsProps) {
           exit={{ opacity: 0, x: -10 }}
           transition={{ duration: 0.2 }}
         >
-          {activeTab === 'nexus' && isAdmin && <ClientManagement />}
+          {activeTab === 'hub' && isAdmin && <ClientManagement />}
           {activeTab === 'billing' && <BillingDashboard />}
           {activeTab === 'ia' && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">

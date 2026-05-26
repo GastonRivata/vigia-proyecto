@@ -173,7 +173,7 @@ export function ResultsDisplay({ data, fileUrl, fileType: initialFileType, onUpd
   const [isInserting, setIsInserting] = useState(false);
   const [integrationStatus, setIntegrationStatus] = useState<{ success?: boolean; message?: string; fault?: string; details?: string; sentXml?: string } | null>(null);
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false); // Nuevo estado
-  const [maestros, setMaestros] = useState<{centroCostos: any[], comprobantes: any[]}>({centroCostos: [], comprobantes: []});
+  const [maestros, setMaestros] = useState<{centroCostos: any[], comprobantes: any[], valorMoneda?: number}>({centroCostos: [], comprobantes: []});
 
   // Sync state when data prop changes
   useEffect(() => {
@@ -227,10 +227,16 @@ export function ResultsDisplay({ data, fileUrl, fileType: initialFileType, onUpd
            initialAlicuota = parseFloat(matchAli[1].replace(',', '.'));
         }
       }
-    } else if (hasItems) {
+    } else if (data?.cabecera?.clasificacion_factura === 'Factura de Compras' || (!data?.cabecera?.clasificacion_factura && hasItems)) {
       initialFlow = 'B';
+      initialComprobante = 'FCOM';
+    } else {
+      initialFlow = 'A';
+      initialComprobante = 'FCOMS';
     }
     
+    let initialPlanCuenta = data?.cabecera?.conclusion_plan_cuenta || '';
+
     return {
       planta: 'PB',
       cliente: '00118',
@@ -252,6 +258,8 @@ export function ResultsDisplay({ data, fileUrl, fileType: initialFileType, onUpd
       flow: initialFlow,
       alicuotaRetencion: initialAlicuota,
       provinciaRetencion: 'S',
+      estado: 'FI',
+      planCuenta: initialPlanCuenta
     };
   });
 
@@ -290,6 +298,9 @@ export function ResultsDisplay({ data, fileUrl, fileType: initialFileType, onUpd
         if (res.ok) {
           const mData = await res.json();
           setMaestros(mData);
+          if (mData.valorMoneda && mData.valorMoneda !== 1) {
+            setRojosoftConfig((prev: RojosoftConfig) => ({ ...prev, cotizacion: mData.valorMoneda }));
+          }
         }
       } catch (err) {
         console.warn("No se pudo obtener la lista de maestros de SQL", err);
@@ -708,6 +719,29 @@ export function ResultsDisplay({ data, fileUrl, fileType: initialFileType, onUpd
       }
     }));
   };
+
+  const [planCuentasOpciones, setPlanCuentasOpciones] = useState<{Cuenta: string, Descripcion: string}[]>([]);
+
+  useEffect(() => {
+    const fetchPlanCuentas = async () => {
+      const q = (rojosoftConfig as any).planCuenta;
+      if (!q || !activeTenant || q.length < 2) return;
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
+        let url = `${backendUrl}/api/vistas/plancuentas?orgId=${activeTenant.id}&q=${encodeURIComponent(q)}`;
+        const finalConfig = getSqlConfigParams();
+        if (finalConfig) {
+          url += `&sqlConfig=${encodeURIComponent(JSON.stringify(finalConfig))}`;
+        }
+        const res = await fetch(url);
+        if (res.ok) {
+          setPlanCuentasOpciones(await res.json());
+        }
+      } catch(e) {}
+    };
+    const to = setTimeout(fetchPlanCuentas, 400);
+    return () => clearTimeout(to);
+  }, [(rojosoftConfig as any).planCuenta, activeTenant]);
 
   const handleConfigChange = (field: keyof RojosoftConfig, value: string | number) => {
     setRojosoftConfig((prev: RojosoftConfig) => ({ ...prev, [field]: value as any }));
@@ -1233,7 +1267,49 @@ SELECT Cuenta, Nombre FROM CLIENTE;
                         className={getMaestroInputClasses('moneda')}
                       />
                     </div>
+                    
+                    <div className="space-y-1">
+                      <label className="text-[9px] text-slate-400 uppercase font-bold tracking-tight">Estado</label>
+                      <select 
+                        value={rojosoftConfig.estado || 'FI'}
+                        onChange={(e) => {
+                          const newEstado = e.target.value;
+                          handleConfigChange('estado', newEstado);
+                          if (newEstado === 'PE') {
+                             handleConfigChange('puntoVenta', '0');
+                             handleConfigChange('nroComprobante', '0');
+                          }
+                        }}
+                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded px-3 py-2 text-xs font-mono text-slate-700 dark:text-slate-300 outline-none focus:border-red-500/50"
+                      >
+                        <option value="FI">FINALIZADO (FI)</option>
+                        <option value="PE">PENDIENTE (PE)</option>
+                      </select>
+                    </div>
                   </div>
+
+                  {rojosoftConfig.flow === 'A' && (
+                    <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-800">
+                       <h4 className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-4">Plan de Cuentas Interactivo</h4>
+                       <div className="space-y-1 relative">
+                         <label className="text-[9px] text-slate-400 font-bold uppercase">Cadena de Búsqueda (IA Conclusión)</label>
+                         <input 
+                            type="text"
+                            list="planCuentasList"
+                            value={(rojosoftConfig as any).planCuenta || ''}
+                            onChange={(e) => handleConfigChange('planCuenta', e.target.value)}
+                            className="w-full bg-white dark:bg-slate-900 border border-blue-500/50 rounded px-3 py-2 text-xs text-blue-900 dark:text-blue-100 font-medium focus:ring-1 focus:ring-blue-500"
+                            placeholder="Ej: Honorarios o Gastos..."
+                         />
+                         <datalist id="planCuentasList">
+                           {planCuentasOpciones.map((opcion, idx) => (
+                             <option key={idx} value={opcion.Descripcion}>{opcion.Cuenta}</option>
+                           ))}
+                         </datalist>
+                         <div className="text-[8px] text-slate-400 mt-1">El valor ingresado aquí filtra dinámicamente en el backend y se asignará al nodo PlanCuenta.</div>
+                       </div>
+                    </div>
+                  )}
 
                   {rojosoftConfig.flow === 'B' && (
                   <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-800">

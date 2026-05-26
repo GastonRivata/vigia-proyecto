@@ -39,7 +39,7 @@ const DEMO_PRESETS = [
     chequeNum: "45091224",
     fEmision: "2026-05-15",
     fPago: "2026-06-15",
-    preview: "https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?q=80&w=400&auto=format&fit=crop"
+    preview: "https://placehold.co/600x300/10b981/ffffff?text=AGROINDUSTRIAS+PAMPEANAS%5CnCHEQUE+45091224%5Cn%24750.000&font=Montserrat"
   },
   {
     name: "Sergio Rivara (Leves Atrasos)",
@@ -50,7 +50,7 @@ const DEMO_PRESETS = [
     chequeNum: "15421109",
     fEmision: "2026-05-10",
     fPago: "2026-06-10",
-    preview: "https://images.unsplash.com/photo-1450133064473-71024230f91b?q=80&w=400&auto=format&fit=crop"
+    preview: "https://placehold.co/600x300/eab308/ffffff?text=SERGIO+RIVARA%5CnCHEQUE+15421109%5Cn%24420.000&font=Montserrat"
   },
   {
     name: "Terranova S.R.L. (Mora Crítica)",
@@ -61,7 +61,7 @@ const DEMO_PRESETS = [
     chequeNum: "78120015",
     fEmision: "2026-05-01",
     fPago: "2026-05-05",
-    preview: "https://images.unsplash.com/photo-1542222024-c39e2281f121?q=80&w=400&auto=format&fit=crop"
+    preview: "https://placehold.co/600x300/f43f5e/ffffff?text=TERRANOVA+LOGISTICA%5CnCHEQUE+78120015%5Cn%241.500.000&font=Montserrat"
   }
 ];
 
@@ -318,9 +318,6 @@ export function ChequeReader() {
       {/* Upper header */}
       <div className="text-center md:text-left mb-2 flex flex-col md:flex-row justify-between items-center gap-4">
         <div>
-          <span className="text-[10px] font-black uppercase tracking-[0.3em] text-red-600 dark:text-red-400 flex items-center justify-center md:justify-start gap-1">
-            <Zap className="w-3.5 h-3.5" /> Módulo Neural Avanzado
-          </span>
           <h2 className="text-3xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-white mt-1 italic uppercase leading-none">
             Lector de <span className="text-red-600">Cheques.</span>
           </h2>
@@ -402,18 +399,27 @@ export function ChequeReader() {
                       <button
                         key={idx}
                         onClick={() => handleLoadPreset(preset)}
-                        className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 hover:bg-red-500/5 dark:bg-white/5 dark:hover:bg-white/10 hover:border-red-500/30 transition-all border border-transparent text-left outline-none text-slate-700 dark:text-slate-300 w-full"
+                        className="flex flex-col sm:flex-row items-center gap-3 p-3.5 rounded-[1.5rem] bg-slate-50 hover:bg-slate-100 dark:bg-slate-950/50 dark:hover:bg-slate-900 transition-all border border-slate-200 dark:border-slate-800 hover:border-red-500/30 text-left outline-none text-slate-700 dark:text-slate-300 w-full group relative overflow-hidden"
                       >
-                        <div className="flex items-center gap-3">
-                          <div className="size-10 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 shrink-0">
-                            <img src={preset.preview} referrerPolicy="no-referrer" alt="" className="size-full object-cover grayscale" />
+                        <div className="flex items-center gap-4 w-full">
+                          <div className="h-12 w-24 sm:h-14 sm:w-28 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 shrink-0 relative">
+                            <img src={preset.preview} referrerPolicy="no-referrer" alt="Cheque miniatura" className="size-full object-cover grayscale opacity-90 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-300" />
                           </div>
-                          <div>
-                            <p className="text-xs font-black tracking-tight uppercase">{preset.name}</p>
-                            <p className="text-[10px] font-mono text-slate-400 mt-0.5">CUIT: {preset.cuit}</p>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[11px] font-black tracking-tight uppercase truncate">{preset.name}</p>
+                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5 truncate">{preset.librador}</p>
+                            <div className="flex items-center gap-2 mt-2 flex-wrap">
+                              <span className="text-[9px] font-mono bg-white dark:bg-white/5 border border-slate-200 dark:border-white/5 px-2 py-0.5 rounded text-slate-600 dark:text-slate-400">
+                                CUIT {preset.cuit}
+                              </span>
+                              <span className="text-[9px] font-black uppercase tracking-[0.15em] text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded flex items-center gap-1">
+                                <ShieldCheck className="w-3 h-3" />
+                                MOCK BCRA
+                              </span>
+                            </div>
                           </div>
+                          <ChevronRight className="w-5 h-5 text-slate-300 dark:text-slate-600 group-hover:text-red-500 transition-colors shrink-0 hidden sm:block" />
                         </div>
-                        <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
                       </button>
                     ))}
                   </div>
