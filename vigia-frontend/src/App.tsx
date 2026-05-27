@@ -1,4 +1,4 @@
-import { useState, useEffect, ReactNode } from 'react';
+import React, { useState, useEffect, ReactNode } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Toaster, toast } from 'sonner';
 import { 
@@ -35,7 +35,7 @@ import { VigiaLogo } from './components/VigiaLogo';
 import { ChequeReader } from './components/ChequeReader';
 import { LiveMapDashboard } from './components/LiveMapDashboard';
 import { extractDocumentData } from './lib/gemini';
-import { cn } from './lib/utils';
+import { cn, optimizeFileIfNeeded } from './lib/utils';
 import { notify } from './lib/notifications';
 import { auth, db, handleFirestoreError } from './lib/firebase';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
@@ -257,14 +257,8 @@ export default function App() {
         setBatchItems(prev => prev.map((item, idx) => idx === i ? { ...item, status: 'processing' } : item));
 
         try {
-            const reader = new FileReader();
-            const base64Promise = new Promise<string>((resolve) => {
-                reader.onload = () => resolve((reader.result as string).split(',')[1]);
-                reader.readAsDataURL(file);
-            });
-
-            const base64Data = await base64Promise;
-            const data = await extractDocumentData(base64Data, file.type);
+            const optimized = await optimizeFileIfNeeded(file);
+            const data = await extractDocumentData(optimized.base64, optimized.mimeType);
             const objectUrl = URL.createObjectURL(file);
             
             setBatchItems(prev => prev.map((item, idx) => idx === i ? { ...item, status: 'done', data, fileUrl: objectUrl, fileType: file.type } : item));

@@ -124,7 +124,7 @@ export async function extractCheckData(base64Data: string, mimeType: string) {
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview", 
+      model: "gemini-3.5-flash", 
       contents: [
         {
           parts: [
@@ -228,7 +228,7 @@ export async function extractDocumentData(base64Data: string, mimeType: string) 
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview", 
+      model: "gemini-3.5-flash", 
       contents: [
         {
           parts: [

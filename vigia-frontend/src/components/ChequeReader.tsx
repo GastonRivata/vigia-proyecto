@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { extractCheckData } from '../lib/gemini';
 import { notify } from '../lib/notifications';
-import { cn } from '../lib/utils';
+import { cn, optimizeFileIfNeeded } from '../lib/utils';
 import { toast } from 'sonner';
 
 // Sample demo cheque images (simulated previews)
@@ -187,28 +187,28 @@ export function ChequeReader() {
       const objectUrl = URL.createObjectURL(file);
       setFileUrl(objectUrl);
 
-      const reader = new FileReader();
-      reader.onload = () => {
-        const base64 = (reader.result as string).split(',')[1];
-        processBase64AndExtract(base64, file.type);
-      };
-      reader.readAsDataURL(file);
+      try {
+        const optimized = await optimizeFileIfNeeded(file);
+        processBase64AndExtract(optimized.base64, optimized.mimeType);
+      } catch (err: any) {
+        toast.error('Error de Optimización', { description: 'No se pudo optimizar la imagen.' });
+      }
     }
   };
 
   // Handle Input Selection
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       const objectUrl = URL.createObjectURL(file);
       setFileUrl(objectUrl);
 
-      const reader = new FileReader();
-      reader.onload = () => {
-        const base64 = (reader.result as string).split(',')[1];
-        processBase64AndExtract(base64, file.type);
-      };
-      reader.readAsDataURL(file);
+      try {
+        const optimized = await optimizeFileIfNeeded(file);
+        processBase64AndExtract(optimized.base64, optimized.mimeType);
+      } catch (err: any) {
+        toast.error('Error de Optimización', { description: 'No se pudo optimizar la imagen.' });
+      }
     }
   };
 

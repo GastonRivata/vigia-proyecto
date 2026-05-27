@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform, Variants, useReducedMotion } from 'motion/react';
-import { FileText, ArrowRight, LogIn, Database, Truck, Scan, ShieldAlert } from 'lucide-react';
+import { FileText, ArrowRight, LogIn, Database, Truck, Scan, ShieldAlert, Play } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { auth, db, handleFirestoreError } from '../lib/firebase';
 import { signInWithPopup, GoogleAuthProvider, User } from 'firebase/auth';
