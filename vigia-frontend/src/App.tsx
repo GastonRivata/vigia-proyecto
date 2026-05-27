@@ -971,54 +971,6 @@ export default function App() {
                   )}
 
                 </div>
-
-                {/* Secondary Administration & System Configuration Tier */}
-                <div className="w-full mt-14 flex flex-col gap-4 relative z-10 px-4">
-                  <div className="flex items-center gap-4">
-                    <span className="text-[10px] uppercase font-black tracking-widest text-slate-400 dark:text-slate-500">ADMINISTRACIÓN & SOPORTE TÉCNICO VIGIA</span>
-                    <div className="h-px flex-1 bg-slate-200 dark:bg-white/5" />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
-                    {/* Configuración de Terminal */}
-                    <motion.div
-                      whileHover={{ scale: 1.01, y: -4 }}
-                      whileTap={{ scale: 0.99 }}
-                      onClick={() => navigateTo('api')}
-                      className="p-6 bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-white/5 rounded-3xl shadow-sm hover:border-red-500/30 dark:hover:border-red-550/30 cursor-pointer flex items-center justify-between group transition-all"
-                    >
-                      <div className="flex items-center gap-4 overflow-hidden">
-                        <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
-                          <Database className="w-6 h-6" />
-                        </div>
-                        <div className="truncate text-left">
-                          <h4 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Terminal & Conexión ERP</h4>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">Configurar URLs SOAP de Terraverde, test de base SQL Server y variables.</p>
-                        </div>
-                      </div>
-                      <ChevronRight className="w-5 h-5 text-slate-400 group-hover:translate-x-1.5 transition-transform shrink-0" />
-                    </motion.div>
-
-                    {/* Preferencias Globales */}
-                    <motion.div
-                      whileHover={{ scale: 1.01, y: -4 }}
-                      whileTap={{ scale: 0.99 }}
-                      onClick={() => navigateTo('settings')}
-                      className="p-6 bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-white/5 rounded-3xl shadow-sm hover:border-red-500/30 dark:hover:border-red-550/30 cursor-pointer flex items-center justify-between group transition-all"
-                    >
-                      <div className="flex items-center gap-4 overflow-hidden">
-                        <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                          <SettingsIcon className="w-6 h-6" />
-                        </div>
-                        <div className="truncate text-left">
-                          <h4 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Preferencias Globales</h4>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">Control de claves API Gemini, registros históricos de auditoría y temas.</p>
-                        </div>
-                      </div>
-                      <ChevronRight className="w-5 h-5 text-slate-400 group-hover:translate-x-1.5 transition-transform shrink-0" />
-                    </motion.div>
-                  </div>
-                </div>
               </motion.div>
             )}
 

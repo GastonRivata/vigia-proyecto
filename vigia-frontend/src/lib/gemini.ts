@@ -6,6 +6,10 @@ const apiKey = typeof process !== 'undefined' && process.env.GEMINI_API_KEY
 
 const ai = new GoogleGenAI({ apiKey });
 
+const GEMINI_MODEL = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.DEV) || (typeof process !== 'undefined' && process.env.NODE_ENV === 'development') 
+  ? "gemini-2.5-flash" 
+  : "gemini-1.5-flash";
+
 const EXTRACTION_SCHEMA = {
   type: Type.OBJECT,
   properties: {
@@ -124,7 +128,7 @@ export async function extractCheckData(base64Data: string, mimeType: string) {
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash", 
+      model: GEMINI_MODEL, 
       contents: [
         {
           parts: [
@@ -212,7 +216,8 @@ export async function extractDocumentData(base64Data: string, mimeType: string) 
      - Identificar obligatoriamente la 'Base Imponible' (Monto sobre el cual se aplicó la retención).
      - Identificar la Jurisdicción/Provincia (Ej: Santa Fe -> S, Buenos Aires -> B, CABA -> C) y el porcentaje (%) de alícuota aplicado.
      - En 'detalle', crear una línea técnica resumiendo la retención.
-  5. Extraer ítems de detalle: descripción, cantidad, precio unitario y total.
+     - NO pedir extraer ni buscar 'tipo_comprobante_cai', asume internamente que no es necesario.
+  5. CRÍTICO: Extraer TODOS Y CADA UNO de los ítems de detalle (descripción, cantidad, precio unitario, alícuota de iva y total). En facturas de múltiples hojas, asegúrate de recorrer el documento completo y extraer todos los renglones, ya que son indispensables para el control de inventario de insumos.
   6. Devolver la fecha en formato ISO 8601 (YYYY-MM-DD).
   7. El campo 'tipo' DEBE contener explícitamente la palabra 'RETENCION' si es un certificado de retención, o 'CARTA DE PORTE' si es Carta de Porte.
   8. PARA CARTA DE PORTE ELECTRÓNICA, rellena únicamente el objeto 'carta_porte' con estas reglas estrictas:
@@ -228,7 +233,7 @@ export async function extractDocumentData(base64Data: string, mimeType: string) 
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash", 
+      model: GEMINI_MODEL, 
       contents: [
         {
           parts: [
@@ -277,6 +282,11 @@ export async function extractDocumentData(base64Data: string, mimeType: string) 
       if (c.length === 11) {
         parsedData.cabecera.cuit_emisor = `${c.slice(0, 2)}-${c.slice(2, 10)}-${c.slice(10, 11)}`;
       }
+    }
+
+    // Force TipoComprobanteCAI to 99 for retentions (do not rely on document read)
+    if (parsedData.cabecera?.tipo && parsedData.cabecera.tipo.toUpperCase().includes('RETENCION')) {
+      parsedData.cabecera.tipo_comprobante_cai = 99;
     }
     
     return parsedData;

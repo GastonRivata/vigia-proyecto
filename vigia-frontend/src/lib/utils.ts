@@ -78,7 +78,7 @@ export async function optimizeFileIfNeeded(file: File): Promise<{ base64: string
     reader.onload = (event) => {
       const img = new Image();
       img.onload = () => {
-        const maxDim = 1600; // Maximun dimension for high-quality OCR text legibility
+        const maxDim = 1200; // Reduced dimension to drastically improve OCR speed and payload
         let width = img.width;
         let height = img.height;
 
@@ -99,8 +99,8 @@ export async function optimizeFileIfNeeded(file: File): Promise<{ base64: string
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(img, 0, 0, width, height);
-          // Export as image/jpeg with 0.8 quality (perfect blend of small size and high legibility)
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+          // Export as image/jpeg with 0.7 quality (perfect blend of small size and high legibility)
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
           const base64 = dataUrl.split(',')[1];
           resolve({ base64, mimeType: 'image/jpeg' });
         } else {
